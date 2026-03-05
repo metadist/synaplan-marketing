@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Deine Chance – Business Development bei Synaplan</title>
+  <meta name="description" content="Nutze Deine Chance. Werde Teil eines erfahrenen Teams im Open Source Umfeld. Business Development & Sales bei Synaplan.">
+
+  <!-- Open Graph / LinkedIn -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Deine Chance – Business Development bei Synaplan">
+  <meta property="og:description" content="Wir suchen unternehmerisch denkende Vertriebstalente. Erfahrenes Team, Open Source Produkt, leistungsbezogene Vergütung.">
+  <meta property="og:image" content="social-linkedin.png?v=2">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="627">
+  <meta property="og:locale" content="de_DE">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=Playfair+Display:ital,wght@0,700;0,900;1,900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --brand-blue: #003FC7;
+      --brand-dark: #020003;
+      --brand-light: #F2F2F2;
+      --accent: #003FC7;
+      --accent-dark: #002a8a;
+
+      --font-main: 'Inter', sans-serif;
+      --font-display: 'Playfair Display', serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: #111;
+      font-family: var(--font-main);
+      color: var(--brand-light);
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow: hidden; /* Prevent scroll on body level */
+    }
+
+    .poster-container {
+      position: relative;
+      width: 100%;
+      max-width: 468px;
+      min-height: min(calc(100vh - 40px), 700px);
+      background: #f2f2f2;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border: 8px solid #fff;
+      border-radius: 5px;
+    }
+
+    /* Animation Background */
+    #canvas-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .poster-content {
+      position: relative;
+      z-index: 10;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 2.5rem;
+      text-align: center;
+      flex: 1;
+    }
+
+    .hero-text {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .hero-headline {
+      font-family: var(--font-display);
+      font-size: clamp(2.2rem, 8vw, 3.2rem);
+      line-height: 1.05;
+      color: #000;
+      font-weight: 900;
+    }
+
+    .hero-headline em {
+      color: var(--accent);
+      font-style: italic;
+      display: block;
+    }
+
+    .hero-sub {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      color: #333;
+      font-weight: 500;
+      max-width: 360px;
+    }
+
+    .hero-sub strong {
+      color: #000;
+      font-weight: 800;
+    }
+
+    .hero-divider {
+      width: 50px;
+      height: 4px;
+      background: var(--accent);
+      border-radius: 2px;
+      margin: 0.5rem 0;
+    }
+
+    .hero-tagline {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #666;
+      font-weight: 700;
+      margin-top: 1rem;
+    }
+
+    .mascot-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 2rem;
+    }
+
+    .mascot {
+      width: 28px;
+      height: auto;
+      opacity: 0.8;
+    }
+
+    .mascot-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #888;
+      font-weight: 600;
+    }
+
+    .mascot-label strong {
+      color: #444;
+      font-weight: 800;
+    }
+
+    .footer-block {
+      flex-shrink: 0;
+      text-align: center;
+      width: 100%;
+      padding-bottom: 1rem;
+      margin-top: auto;
+    }
+
+    .credits {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #888;
+      margin-bottom: 1.5rem;
+    }
+
+    .credits strong {
+      color: #444;
+      font-weight: 700;
+    }
+
+    @keyframes gentle-float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    .action-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 1rem 2.5rem;
+      font-family: var(--font-main);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      font-size: 1rem;
+      box-shadow: 0 8px 20px rgba(0,63,199,0.25);
+      animation: gentle-float 3s ease-in-out infinite;
+      border-radius: 50px;
+      transition: all 0.3s ease;
+    }
+
+    .action-btn:hover {
+      animation-play-state: paused;
+      transform: translateY(-2px) scale(1.02);
+      background: var(--accent-dark);
+      box-shadow: 0 12px 25px rgba(0,63,199,0.35);
+    }
+
+    /* Impressum */
+    .imprint {
+      margin-top: 1rem;
+      font-size: 0.75rem;
+      color: #666;
+      text-align: center;
+    }
+    .imprint a {
+      color: #888;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .imprint a:hover {
+      color: #fff;
+    }
+
+    /* Overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+
+    .overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .overlay-card {
+      position: relative;
+      background: #fff;
+      color: #111;
+      width: 90%;
+      max-width: 550px;
+      max-height: 85vh;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translateY(20px) scale(0.95);
+      opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+
+    .overlay.open .overlay-card {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: rgba(0,0,0,0.05);
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-size: 1.2rem;
+      cursor: pointer;
+      color: #444;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    
+    .close-btn:hover {
+        background: rgba(0,0,0,0.1);
+    }
+
+    .job-header {
+      flex-shrink: 0;
+      border-bottom: 1px solid #f0f0f0;
+      padding: 2.5rem 2rem 1.5rem;
+      background: #fafafa;
+    }
+
+    .job-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 2rem;
+    }
+
+    .job-title {
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 1.8rem;
+      line-height: 1.2;
+      margin-bottom: 0.5rem;
+      color: var(--brand-blue);
+    }
+
+    .job-meta {
+      font-size: 0.85rem;
+      color: #666;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .job-section {
+      margin-bottom: 2.5rem;
+      line-height: 1.7;
+    }
+
+    .job-section h3 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #999;
+      margin-bottom: 1rem;
+      font-weight: 700;
+    }
+    
+    .job-section p {
+        margin-bottom: 1rem;
+        color: #333;
+    }
+
+    .job-section ul {
+      list-style: none;
+    }
+
+    .job-section li {
+      margin-bottom: 0.8rem;
+      padding-left: 1.5rem;
+      position: relative;
+      color: #333;
+    }
+
+    .job-section li::before {
+      content: '→';
+      color: var(--brand-blue);
+      position: absolute;
+      left: 0;
+      font-weight: bold;
+    }
+
+    .apply-btn {
+      display: block;
+      width: 100%;
+      background: var(--brand-blue);
+      color: #fff;
+      text-align: center;
+      padding: 1.1rem;
+      text-decoration: none;
+      font-weight: 700;
+      border-radius: 8px;
+      margin-top: 1rem;
+      transition: background 0.2s, transform 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.9rem;
+    }
+
+    .apply-btn:hover {
+      background: #002a8a;
+      transform: translateY(-1px);
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="poster-container">
+    <canvas id="canvas-bg"></canvas>
+    
+    <div class="poster-content">
+      <div class="hero-text">
+        <div class="hero-headline">Deine Chance.<br><em>Gestalte Zukunft.</em></div>
+        <div class="hero-divider"></div>
+        <div class="hero-sub">
+          Wir suchen <strong>Unternehmer im Unternehmen</strong>.<br>
+          Selbstständig. Denkend. Handelnd.<br>
+          Erweitere unser Netzwerk.
+        </div>
+        
+        <div class="mascot-row">
+          <img src="single_bird.svg?v=1" alt="Synaplan Mascot" class="mascot">
+          <span class="mascot-label">powered by <strong>synaplan</strong></span>
+        </div>
+      </div>
+
+      <div class="footer-block">
+        <div class="credits">
+          <strong>METADIST GMBH</strong> &nbsp;•&nbsp; DÜSSELDORF &nbsp;•&nbsp; TEAM
+        </div>
+
+        <button class="action-btn" onclick="document.querySelector('.overlay').classList.add('open')">
+          Mehr erfahren
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="imprint">
+    <a href="https://www.synaplan.com/de/" target="_blank">Homepage</a> &middot; <a href="https://www.synaplan.com/de/imprint" target="_blank">Impressum</a>
+  </div>
+
+  <div class="overlay" onclick="if(event.target === this) this.classList.remove('open')">
+    <div class="overlay-card">
+      <button class="close-btn" onclick="document.querySelector('.overlay').classList.remove('open')">✕</button>
+
+      <div class="job-header">
+        <div class="job-title">Business Development & Sales (m/w/d)</div>
+        <div class="job-meta">Düsseldorf · Hybrid / Remote · Leistungsbezogen</div>
+      </div>
+
+      <div class="job-body">
+        <div class="job-section">
+          <h3>Das Team</h3>
+          <p>
+            Hinter Synaplan steht ein Team mit tiefgreifender Erfahrung im Software-Markt und Führungsverantwortung in großen Unternehmen. 
+            Wir verfügen über ein solides Netzwerk und suchen jemanden, der dieses mit uns erweitert. 
+            Wir sind keine Träumer, sondern Macher mit einer klaren Vision für souveräne Software.
+          </p>
+        </div>
+
+        <div class="job-section">
+          <h3>Das Produkt</h3>
+          <p>
+            Bei Synaplan handelt es sich um eine Open-Source Software für den souveränen und wertegetriebenen Einsatz. 
+            Wir bieten Unternehmen die Freiheit und Sicherheit, die sie in einer komplexen digitalen Welt benötigen. 
+            Echte Werte statt Vendor Lock-in.
+          </p>
+        </div>
+
+        <div class="job-section">
+          <h3>Deine Rolle</h3>
+          <ul>
+            <li><strong>Unternehmerisches Denken:</strong> Du arbeitest selbstständig und übernimmst Verantwortung für deinen Bereich.</li>
+            <li><strong>Vertrieb & BizDev:</strong> Du hast Erfahrung im Business Development und Vertrieb und weißt, wie man Türen öffnet.</li>
+            <li><strong>Netzwerk:</strong> Du bringst idealerweise eigene Kontakte mit und baust unser Netzwerk strategisch weiter aus.</li>
+          </ul>
+        </div>
+
+        <div class="job-section">
+          <h3>Das Angebot</h3>
+          <ul>
+            <li>Zusammenarbeit mit erfahrenen Gründern auf Augenhöhe.</li>
+            <li>Ein Produkt mit Substanz und ethischem Anspruch.</li>
+            <li>Ein attraktives Vergütungsmodell: Wir entlohnen Leistung gerne überdurchschnittlich.</li>
+            <li>Maximale Flexibilität und Eigenverantwortung.</li>
+          </ul>
+        </div>
+
+        <a href="mailto:info@metadist.de?subject=Bewerbung%20Business%20Development%20Chance&body=Hallo%20Synaplan-Team%2C%0A%0Aich%20m%C3%B6chte%20die%20Chance%20nutzen.%20Anbei%20mein%20Profil.%0A%0A%5BDein%20Name%5D" class="apply-btn">
+          Jetzt Chance nutzen
+        </a>
+        
+        <p style="text-align: center; margin-top: 1.5rem; font-size: 0.8rem; color: #999;">
+          Schreib uns einfach an. Wir freuen uns auf den Austausch.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Overlay logic
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') document.querySelector('.overlay').classList.remove('open')
+    });
+
+    // Background Animation
+    const canvas = document.getElementById('canvas-bg');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+    let particles = [];
+
+    function resize() {
+      width = canvas.width = canvas.parentElement.offsetWidth;
+      height = canvas.height = canvas.parentElement.offsetHeight;
+    }
+    
+    window.addEventListener('resize', resize);
+    resize();
+
+    class Particle {
+      constructor() {
+        this.x = Math.random() * width;
+        this.y = Math.random() * height;
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.size = Math.random() * 2 + 1;
+        this.color = Math.random() > 0.5 ? 'rgba(0, 63, 199, 0.15)' : 'rgba(0, 0, 0, 0.05)';
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (this.x < 0) this.x = width;
+        if (this.x > width) this.x = 0;
+        if (this.y < 0) this.y = height;
+        if (this.y > height) this.y = 0;
+      }
+
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+      }
+    }
+
+    function initParticles() {
+      particles = [];
+      const particleCount = 40;
+      for (let i = 0; i < particleCount; i++) {
+        particles.push(new Particle());
+      }
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, width, height);
+      
+      // Draw connections
+      ctx.strokeStyle = 'rgba(0, 63, 199, 0.05)';
+      ctx.lineWidth = 1;
+      
+      for (let i = 0; i < particles.length; i++) {
+        let p1 = particles[i];
+        p1.update();
+        p1.draw();
+
+        for (let j = i + 1; j < particles.length; j++) {
+          let p2 = particles[j];
+          const dx = p1.x - p2.x;
+          const dy = p1.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < 100) {
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        }
+      }
+      requestAnimationFrame(animate);
+    }
+
+    initParticles();
+    animate();
+  </script>
+
+</body>
+</html>
