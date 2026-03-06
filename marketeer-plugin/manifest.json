@@ -1,0 +1,124 @@
+{
+  "id": "marketeer",
+  "name": "marketeer",
+  "version": "1.0.0",
+  "displayName": "Marketeer Landing Page Generator",
+  "description": "AI-powered marketing campaign and landing page generator with keyword lists, social images, and multi-language support",
+  "author": "Synaplan",
+  "homepage": "https://github.com/metadist/synaplan-marketing",
+  "license": "MIT",
+  "minSynaplanVersion": "1.0.0",
+  "capabilities": ["api", "frontend", "migrations"],
+  "routes": [
+    {
+      "path": "/setup-check",
+      "method": "GET",
+      "description": "Check if plugin is installed and configured"
+    },
+    {
+      "path": "/setup",
+      "method": "POST",
+      "description": "Initialize plugin with default templates"
+    },
+    {
+      "path": "/config",
+      "method": "GET",
+      "description": "Get plugin configuration"
+    },
+    {
+      "path": "/config",
+      "method": "PUT",
+      "description": "Update plugin configuration"
+    },
+    {
+      "path": "/campaigns",
+      "method": "GET",
+      "description": "List all campaigns"
+    },
+    {
+      "path": "/campaigns",
+      "method": "POST",
+      "description": "Create a new campaign"
+    },
+    {
+      "path": "/campaigns/{campaignId}",
+      "method": "GET",
+      "description": "Get campaign details"
+    },
+    {
+      "path": "/campaigns/{campaignId}",
+      "method": "PUT",
+      "description": "Update a campaign"
+    },
+    {
+      "path": "/campaigns/{campaignId}",
+      "method": "DELETE",
+      "description": "Delete a campaign"
+    },
+    {
+      "path": "/campaigns/{campaignId}/generate",
+      "method": "POST",
+      "description": "Generate landing page HTML via AI"
+    },
+    {
+      "path": "/campaigns/{campaignId}/generate-keywords",
+      "method": "POST",
+      "description": "Generate keyword list for Google Ads"
+    },
+    {
+      "path": "/campaigns/{campaignId}/generate-image",
+      "method": "POST",
+      "description": "Generate social sharing image via AI"
+    },
+    {
+      "path": "/campaigns/{campaignId}/refine",
+      "method": "POST",
+      "description": "Refine generated content with follow-up prompt"
+    },
+    {
+      "path": "/campaigns/{campaignId}/files",
+      "method": "GET",
+      "description": "List generated files for a campaign"
+    },
+    {
+      "path": "/campaigns/{campaignId}/download",
+      "method": "GET",
+      "description": "Download campaign as ZIP"
+    }
+  ],
+  "migrations": [
+    "001_setup.sql"
+  ],
+  "hooks": {
+    "onInstall": "Plugin\\Marketeer\\Service\\MarketeerInstallService::seedDefaults"
+  },
+  "config": {
+    "group": "P_marketeer",
+    "settings": [
+      {
+        "key": "enabled",
+        "type": "boolean",
+        "default": true,
+        "description": "Enable Marketeer plugin for this user"
+      },
+      {
+        "key": "default_language",
+        "type": "string",
+        "default": "en",
+        "description": "Default language for generated content"
+      },
+      {
+        "key": "cta_url",
+        "type": "string",
+        "default": "https://web.synaplan.com",
+        "description": "Default call-to-action URL"
+      },
+      {
+        "key": "brand_name",
+        "type": "string",
+        "default": "Synaplan",
+        "description": "Brand name used in generated content"
+      }
+    ]
+  }
+}
