@@ -1,6 +1,7 @@
 -- Marketeer Plugin Migration 001: Initial Setup
 -- Run per-user when the plugin is installed.
--- Uses generic plugin_data table for campaign/page storage (non-invasive).
+-- Uses generic plugin_data table for campaign/page/ad_copy storage (non-invasive).
+-- Placeholders: :userId, :group
 
 INSERT IGNORE INTO BCONFIG (BOWNERID, BGROUP, BSETTING, BVALUE)
 VALUES (:userId, :group, 'enabled', '1');
@@ -13,3 +14,15 @@ VALUES (:userId, :group, 'cta_url', 'https://web.synaplan.com');
 
 INSERT IGNORE INTO BCONFIG (BOWNERID, BGROUP, BSETTING, BVALUE)
 VALUES (:userId, :group, 'brand_name', 'Synaplan');
+
+INSERT IGNORE INTO BCONFIG (BOWNERID, BGROUP, BSETTING, BVALUE)
+VALUES (:userId, :group, 'privacy_policy_url', '');
+
+INSERT IGNORE INTO BCONFIG (BOWNERID, BGROUP, BSETTING, BVALUE)
+VALUES (:userId, :group, 'imprint_url', '');
+
+INSERT IGNORE INTO BCONFIG (BOWNERID, BGROUP, BSETTING, BVALUE)
+VALUES (:userId, :group, 'gtm_id', '');
+
+INSERT IGNORE INTO BCONFIG (BOWNERID, BGROUP, BSETTING, BVALUE)
+VALUES (:userId, :group, 'gads_conversion_id', '');

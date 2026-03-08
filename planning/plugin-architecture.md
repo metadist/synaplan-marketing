@@ -1,227 +1,112 @@
-# Plugin Architecture: Auto-Discovery & 3-Market Model
+# Plugin Auto-Discovery Architecture
 
-This document captures the architectural decisions for the Synaplan plugin system overhaul. These changes must be implemented in `synaplan/` before the Marketeer plugin (or any new plugin) can be deployed without manual config edits.
+**One-time core change. After this, zero core edits for new plugins.**
 
-## Problem Statement
-
-Adding a new plugin to Synaplan currently requires editing **3 core files**:
-
-1. `backend/composer.json` -- PSR-4 autoload entry
-2. `backend/config/routes.yaml` -- route block
-3. `backend/config/services.yaml` -- service registration + `$uploadDir` wiring
-
-This does not scale and defeats the purpose of a plugin architecture. The goal: **drop a plugin into `/plugins/`, run the install command, done.**
-
-Additionally, plugin controllers currently do NOT verify whether a plugin is installed for the requesting user. Any authenticated user can call any plugin endpoint.
-
-## Two-Layer Architecture
-
-The plugin system has two separate concerns that must not be conflated:
-
-### Layer 1: Code Loading (System-Wide)
-
-All plugins in `/plugins/` must have their PHP classes loadable, routes registered, and services available in the Symfony container. This is system-wide because Symfony serves all users from one PHP process. You cannot conditionally load routes per user.
-
-### Layer 2: Access Control (Per-User, Per-Request)
-
-When a user calls a plugin endpoint, the controller must check:
-1. Is the user authenticated? (Symfony security firewall)
-2. Does the user own this userId? (`canAccessPlugin()` -- already exists)
-3. Is this plugin installed for this user? (**missing -- must be added**)
-4. Does the user's subscription plan allow this plugin? (future, platform only)
-
-## The 3-Market Model
-
-Synaplan serves 3 markets from one codebase:
-
-| Market | Who | Plugins in `/plugins/` | Who installs per user | Access gating |
-|--------|-----|----------------------|----------------------|---------------|
-| **Platform** | web.synaplan.com SaaS customers | All premium plugins, admin-managed | Automation or admin CLI, triggered by subscription | Subscription level + BCONFIG `P_{name}.enabled` |
-| **Enterprise** | Self-hosted companies | Admin picks which to deploy | Admin CLI per user | BCONFIG `P_{name}.enabled` |
-| **Open Source** | GitHub community | User downloads/adds plugins | User installs for themselves | BCONFIG `P_{name}.enabled` |
-
-In all 3 cases, the same mechanism works:
-1. Plugin code exists in `/plugins/{name}/` (central repo, read-only Docker mount)
-2. `app:plugin:install {userId} {name}` creates symlinks + BCONFIG entries
-3. API calls check BCONFIG `P_{name}.enabled = 1` before allowing access
-
-## Per-User Installation Flow (Already Exists)
-
-The `PluginManager` class in `synaplan/backend/src/Service/Plugin/PluginManager.php` handles this:
+## How It Works
 
 ```
-Central Repository                 User Space (per user)
-/plugins/{name}/                   {uploadDir}/{userPath}/plugins/{name}/
-  ├── manifest.json                  ├── backend -> /plugins/{name}/backend/  (symlink)
-  ├── backend/                       ├── frontend -> /plugins/{name}/frontend/ (symlink)
-  ├── frontend/                      └── up -> ../../../                       (symlink)
-  └── migrations/
+/plugins/{name}/
+  ├── manifest.json        ← declares id, namespace, version
+  ├── backend/
+  │   ├── Controller/      ← auto-discovered routes (Symfony attributes)
+  │   └── Service/         ← auto-registered services (autowired)
+  ├── frontend/            ← optional UI
+  └── migrations/          ← per-user SQL (run by app:plugin:install)
 ```
 
-The `up` symlink points back to the user's upload root, giving plugins access to the user's file space.
+**Boot sequence:**
+1. `plugin-autoloader.php` resolves `Plugin\Xyz\*` → `/plugins/xyz/backend/*`
+2. `Kernel::configureRoutes()` scans `/plugins/*/backend/Controller/` for route attributes
+3. `Kernel::configureContainer()` reads each `manifest.json`, registers services with correct namespace
 
-BCONFIG entries created by migration:
-- `(userId, P_{name}, enabled, 1)` -- activation flag
-- `(userId, P_{name}, ...)` -- plugin-specific settings
+**Adding a new plugin:**
+1. Drop directory into `/plugins/`
+2. `php bin/console cache:clear`
+3. `php bin/console app:plugin:install {userId} {name}`
 
-## Auto-Discovery Implementation Plan
+No composer.json, no routes.yaml, no services.yaml edits.
 
-### A1. Custom Autoloader
+## Core Changes (one-time)
 
-**New file**: `backend/config/plugin-autoloader.php`
+| File | Change |
+|------|--------|
+| `config/plugin-autoloader.php` | **New** — SPL autoloader for `Plugin\*` namespaces |
+| `src/Kernel.php` | **Modify** — dynamic route + service loading |
+| `composer.json` | **Modify** — remove per-plugin PSR-4, add autoloader file |
+| `config/routes.yaml` | **Modify** — remove per-plugin blocks |
+| `config/services.yaml` | **Modify** — remove per-plugin blocks |
 
-Resolves the namespace-to-directory mismatch. Plugin directories use lowercase (`marketeer`) with a `backend/` subdirectory, but PHP namespaces use PascalCase (`Plugin\Marketeer\Controller\...`).
-
-```php
-spl_autoload_register(function (string $class): void {
-    if (!str_starts_with($class, 'Plugin\\')) {
-        return;
-    }
-    // Plugin\Marketeer\Controller\X -> /plugins/marketeer/backend/Controller/X.php
-    $parts = explode('\\', $class);
-    array_shift($parts); // remove "Plugin"
-    $pluginName = strtolower(array_shift($parts));
-    $pluginsDir = '/plugins';
-    if (!is_dir($pluginsDir)) {
-        $pluginsDir = dirname(__DIR__, 2) . '/plugins';
-    }
-    $file = $pluginsDir . '/' . $pluginName . '/backend/' . implode('/', $parts) . '.php';
-    if (file_exists($file)) {
-        require_once $file;
-    }
-});
-```
-
-This also handles the **platform scenario** where plugins are mounted at runtime (after the Docker image is built), which compiled PSR-4 maps cannot do.
-
-Register in `composer.json`:
-```json
-"autoload": {
-    "psr-4": {
-        "App\\": "src/",
-        "Plugin\\": "/plugins/",
-        "Inference\\": "lib/grpc/Inference/",
-        "GPBMetadata\\": "lib/grpc/GPBMetadata/"
-    },
-    "files": ["config/plugin-autoloader.php"]
-}
-```
-
-Remove all per-plugin entries (`Plugin\SortX\`, `Plugin\CastingData\`, `Plugin\Marketeer\`).
-
-### A2. Dynamic Route Loading
-
-**Modify**: `backend/src/Kernel.php` -- `configureRoutes()` method.
-
-The Kernel already had this code **commented out** with the note "plugins need proper autoload setup." Step A1 fixes that.
-
-```php
-protected function configureRoutes(RoutingConfigurator $routes): void
-{
-    // ... existing route imports ...
-
-    // Dynamic Plugin Route Loading
-    $pluginsDir = '/plugins';
-    if (is_dir($pluginsDir)) {
-        foreach (glob($pluginsDir . '/*/backend/Controller', GLOB_ONLYDIR) as $dir) {
-            $routes->import($dir, 'attribute');
-        }
-    }
-}
-```
-
-Remove all `plugin_*` blocks from `routes.yaml`.
-
-### A3. Dynamic Service Registration
-
-**Modify**: `backend/src/Kernel.php` -- `configureContainer()` method.
-
-After loading `services.yaml`, scan `/plugins/*/manifest.json` and register service definitions:
-
-```php
-protected function configureContainer(ContainerConfigurator $container): void
-{
-    // ... existing config imports ...
-
-    // Dynamic Plugin Service Registration
-    $pluginsDir = '/plugins';
-    if (is_dir($pluginsDir)) {
-        foreach (glob($pluginsDir . '/*/manifest.json') as $manifestPath) {
-            $pluginDir = dirname($manifestPath);
-            $backendDir = $pluginDir . '/backend';
-            if (!is_dir($backendDir)) {
-                continue;
-            }
-            $data = json_decode(file_get_contents($manifestPath), true);
-            $name = ucfirst($data['id'] ?? basename($pluginDir));
-            $container->services()
-                ->load("Plugin\\{$name}\\", $backendDir . '/')
-                ->exclude($backendDir . '/{Entity,migrations,tests}')
-                ->bind('$uploadDir', '%kernel.project_dir%/var/uploads');
-        }
-    }
-}
-```
-
-Remove all `Plugin\*` blocks from `services.yaml`.
-
-### A4. Per-User Access Gate
-
-**Modify**: `canAccessPlugin()` in every plugin controller to check BCONFIG:
-
-```php
-private function canAccessPlugin(?User $user, int $userId): bool
-{
-    if ($user === null || $user->getId() !== $userId) {
-        return false;
-    }
-    return $this->configRepository->getValue($userId, self::CONFIG_GROUP, 'enabled') === '1';
-}
-```
-
-Affected controllers: MarketeerController, SortXController, BrogentController, CastingDataController.
-
-Error response for uninstalled plugins:
-```json
-{"success": false, "error": "Plugin not installed", "code": "PLUGIN_NOT_INSTALLED"}
-```
-
-### A5. PluginManifest Enhancement (Optional)
-
-Enhance `backend/src/Service/Plugin/PluginManifest.php` to include a `requiredPlan` field:
+## manifest.json Contract
 
 ```json
 {
   "id": "marketeer",
-  "requiredPlan": "PRO"
+  "namespace": "Plugin\\Marketeer",
+  "version": "1.0.0",
+  "capabilities": ["api", "frontend", "migrations"],
+  "config": { "group": "P_marketeer" }
 }
 ```
 
-`PluginManager::installPlugin()` can then check the user's subscription level on the platform before allowing installation. On open source / enterprise (where BillingService is disabled), this check is skipped.
+The `namespace` field is required when it differs from `Plugin\` + ucfirst(id). Examples:
+- `sortx` → `"namespace": "Plugin\\SortX"` (mixed case)
+- `castingdata` → `"namespace": "Plugin\\CastingData"` (mixed case)
+- `marketeer` → omit (default `Plugin\\Marketeer` works)
 
-## File Inventory (Changes in synaplan/)
+## Per-User Access Gate
 
-| File | Action |
-|------|--------|
-| `backend/config/plugin-autoloader.php` | **Create** |
-| `backend/src/Kernel.php` | **Modify** -- add dynamic route + service loading |
-| `backend/composer.json` | **Modify** -- remove per-plugin PSR-4, add files autoloader |
-| `backend/config/routes.yaml` | **Modify** -- remove `plugin_sortx`, `plugin_castingdata`, `plugin_marketeer` blocks |
-| `backend/config/services.yaml` | **Modify** -- remove `Plugin\SortX\`, `Plugin\CastingData\`, `Plugin\Marketeer\` blocks |
-| `backend/src/Service/Plugin/PluginManifest.php` | **Modify** -- add `id`, `displayName`, `requiredPlan` |
-| All plugin controllers | **Modify** -- add `isPluginInstalled()` check |
+Every plugin controller must check `BCONFIG P_{name}.enabled = 1`:
 
-## What Does NOT Change
+```php
+private function canAccessPlugin(?User $user, int $userId): bool
+{
+    return $user !== null
+        && $user->getId() === $userId
+        && $this->configRepository->getValue($userId, self::CONFIG_GROUP, 'enabled') === '1';
+}
+```
 
-- **Symlink model** -- `PluginManager::installPlugin()` continues to create per-user symlinks.
-- **Migration system** -- SQL migrations still run per-user on install.
-- **security.yaml** -- Generic plugin assets rule stays. Plugins needing public endpoints (like BroGent pairing) still add rules case-by-case.
-- **Frontend plugin loading** -- `GET /api/v1/config/runtime` already only returns plugins installed for the current user.
+---
 
-## After This: Adding a New Plugin
+# Marketeer MVP Plan
 
-1. Put plugin directory in `/plugins/{name}/` with `manifest.json` and `backend/` dir.
-2. Restart container (or `cache:clear` on platform).
-3. Run `php bin/console app:plugin:install {userId} {name}`.
+## Scope (5 features, nothing more)
 
-Zero core config edits. Works identically on platform, enterprise, and open source.
+1. **Campaign CRUD** — create, edit, delete campaigns with CTAs, audience, USPs
+2. **Landing pages** — AI-generate, refine, per-language, GDPR snippets auto-injected
+3. **Collaterals** — AI images (hero, social, banners, icons) + Google Ads RSA + social posts (LinkedIn, Instagram, Discord)
+4. **Google Ads planning** — AI-generate campaign structures with ad groups, keywords, match types; export for import
+5. **Compliance & launch** — GDPR checker, cookie consent snippets, pre-launch checklist
+
+## Data Model (all in generic plugin_data table)
+
+| Type | Key pattern | Content |
+|------|-------------|---------|
+| `campaign` | `{slug}` | Title, topic, audience, USPs, CTAs, platforms, tracking, status |
+| `page` | `{slug}_{lang}` | HTML, generation metadata |
+| `ad_copy` | `{slug}_google_{lang}` | Headlines, descriptions, sitelinks |
+| `social_post` | `{slug}_{platform}_{lang}` | Post text, hashtags, image concept |
+| `collateral` | `{slug}_{type}_{lang}` | File path, prompt, provider |
+| `ads_campaign` | `{slug}_{id}` | Campaign structure, ad groups, keywords, budget |
+
+Config in BCONFIG `P_marketeer`: enabled, default_language, cta_url, brand_name, privacy_policy_url, imprint_url, gtm_id, gads_conversion_id.
+
+## Testing
+
+**Automated test script** (`test-marketeer.sh`) runs after deployment:
+
+```
+1. Setup check      → plugin responds, config correct
+2. Seed defaults    → example campaign created
+3. Campaign CRUD    → create, get, update, delete
+4. Ads campaign     → manual create, list, delete
+5. Ad copy list     → empty list returns correctly
+6. Compliance       → quick check returns checklist
+7. Cookie snippet   → HTML snippet returned
+8. Dashboard        → overview with correct counts
+9. Cleanup          → delete test data
+```
+
+Each step asserts `"success": true` and expected fields. Non-zero exit on failure.
+
+**AI-dependent endpoints** (generate page, generate ad copy, generate image) are tested manually since they require a configured AI provider.

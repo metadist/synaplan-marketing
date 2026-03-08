@@ -2,89 +2,47 @@
   "id": "marketeer",
   "name": "marketeer",
   "version": "1.0.0",
-  "displayName": "Marketeer Landing Page Generator",
-  "description": "AI-powered marketing campaign and landing page generator with keyword lists, social images, and multi-language support",
+  "displayName": "Marketeer Campaign Generator",
+  "description": "AI-powered marketing campaign generator: landing pages, Google Ads copy, social media posts, keyword lists, compliance checks, and multi-language support",
   "author": "Synaplan",
   "homepage": "https://github.com/metadist/synaplan-marketing",
   "license": "MIT",
   "minSynaplanVersion": "1.0.0",
   "capabilities": ["api", "frontend", "migrations"],
   "routes": [
-    {
-      "path": "/setup-check",
-      "method": "GET",
-      "description": "Check if plugin is installed and configured"
-    },
-    {
-      "path": "/setup",
-      "method": "POST",
-      "description": "Initialize plugin with default templates"
-    },
-    {
-      "path": "/config",
-      "method": "GET",
-      "description": "Get plugin configuration"
-    },
-    {
-      "path": "/config",
-      "method": "PUT",
-      "description": "Update plugin configuration"
-    },
-    {
-      "path": "/campaigns",
-      "method": "GET",
-      "description": "List all campaigns"
-    },
-    {
-      "path": "/campaigns",
-      "method": "POST",
-      "description": "Create a new campaign"
-    },
-    {
-      "path": "/campaigns/{campaignId}",
-      "method": "GET",
-      "description": "Get campaign details"
-    },
-    {
-      "path": "/campaigns/{campaignId}",
-      "method": "PUT",
-      "description": "Update a campaign"
-    },
-    {
-      "path": "/campaigns/{campaignId}",
-      "method": "DELETE",
-      "description": "Delete a campaign"
-    },
-    {
-      "path": "/campaigns/{campaignId}/generate",
-      "method": "POST",
-      "description": "Generate landing page HTML via AI"
-    },
-    {
-      "path": "/campaigns/{campaignId}/generate-keywords",
-      "method": "POST",
-      "description": "Generate keyword list for Google Ads"
-    },
-    {
-      "path": "/campaigns/{campaignId}/generate-image",
-      "method": "POST",
-      "description": "Generate social sharing image via AI"
-    },
-    {
-      "path": "/campaigns/{campaignId}/refine",
-      "method": "POST",
-      "description": "Refine generated content with follow-up prompt"
-    },
-    {
-      "path": "/campaigns/{campaignId}/files",
-      "method": "GET",
-      "description": "List generated files for a campaign"
-    },
-    {
-      "path": "/campaigns/{campaignId}/download",
-      "method": "GET",
-      "description": "Download campaign as ZIP"
-    }
+    {"path": "/setup-check", "method": "GET", "description": "Check plugin setup status"},
+    {"path": "/setup", "method": "POST", "description": "Initialize plugin with defaults"},
+    {"path": "/config", "method": "GET", "description": "Get plugin configuration"},
+    {"path": "/config", "method": "PUT", "description": "Update plugin configuration"},
+    {"path": "/dashboard", "method": "GET", "description": "Campaign overview dashboard"},
+    {"path": "/plan", "method": "POST", "description": "AI-generate campaign plan from idea"},
+    {"path": "/campaigns", "method": "GET", "description": "List all campaigns"},
+    {"path": "/campaigns", "method": "POST", "description": "Create a new campaign"},
+    {"path": "/campaigns/{campaignId}", "method": "GET", "description": "Get campaign with all assets"},
+    {"path": "/campaigns/{campaignId}", "method": "PUT", "description": "Update campaign"},
+    {"path": "/campaigns/{campaignId}", "method": "DELETE", "description": "Delete campaign and assets"},
+    {"path": "/campaigns/{campaignId}/generate", "method": "POST", "description": "Generate landing page via AI"},
+    {"path": "/campaigns/{campaignId}/pages/{language}", "method": "GET", "description": "Get specific page"},
+    {"path": "/campaigns/{campaignId}/pages/{language}", "method": "DELETE", "description": "Delete specific page"},
+    {"path": "/campaigns/{campaignId}/refine", "method": "POST", "description": "Refine content with AI"},
+    {"path": "/campaigns/{campaignId}/generate-ad-copy", "method": "POST", "description": "Generate ad copy for platform"},
+    {"path": "/campaigns/{campaignId}/ad-copy", "method": "GET", "description": "List all ad copy and social posts"},
+    {"path": "/campaigns/{campaignId}/ad-copy/{platform}/{language}", "method": "DELETE", "description": "Delete ad copy"},
+    {"path": "/campaigns/{campaignId}/generate-keywords", "method": "POST", "description": "Generate keyword list"},
+    {"path": "/campaigns/{campaignId}/generate-image", "method": "POST", "description": "Generate marketing image"},
+    {"path": "/campaigns/{campaignId}/ads-campaigns", "method": "GET", "description": "List Google Ads campaign plans"},
+    {"path": "/campaigns/{campaignId}/ads-campaigns", "method": "POST", "description": "Create ads campaign plan"},
+    {"path": "/campaigns/{campaignId}/ads-campaigns/generate", "method": "POST", "description": "AI-generate ads campaign structure"},
+    {"path": "/campaigns/{campaignId}/ads-campaigns/{adsCampaignId}", "method": "GET", "description": "Get ads campaign"},
+    {"path": "/campaigns/{campaignId}/ads-campaigns/{adsCampaignId}", "method": "PUT", "description": "Update ads campaign"},
+    {"path": "/campaigns/{campaignId}/ads-campaigns/{adsCampaignId}", "method": "DELETE", "description": "Delete ads campaign"},
+    {"path": "/campaigns/{campaignId}/ads-campaigns/{adsCampaignId}/export-keywords", "method": "GET", "description": "Export keywords for Google Ads import"},
+    {"path": "/campaigns/{campaignId}/compliance", "method": "GET", "description": "Quick GDPR compliance check"},
+    {"path": "/campaigns/{campaignId}/compliance/ai-review", "method": "POST", "description": "AI-powered compliance review"},
+    {"path": "/compliance/cookie-snippet", "method": "GET", "description": "Get cookie consent HTML snippet"},
+    {"path": "/campaigns/{campaignId}/checklist", "method": "POST", "description": "AI pre-launch readiness check"},
+    {"path": "/campaigns/{campaignId}/files", "method": "GET", "description": "List generated files"},
+    {"path": "/campaigns/{campaignId}/download", "method": "GET", "description": "Download campaign as ZIP"}
   ],
   "migrations": [
     "001_setup.sql"
@@ -95,30 +53,14 @@
   "config": {
     "group": "P_marketeer",
     "settings": [
-      {
-        "key": "enabled",
-        "type": "boolean",
-        "default": true,
-        "description": "Enable Marketeer plugin for this user"
-      },
-      {
-        "key": "default_language",
-        "type": "string",
-        "default": "en",
-        "description": "Default language for generated content"
-      },
-      {
-        "key": "cta_url",
-        "type": "string",
-        "default": "https://web.synaplan.com",
-        "description": "Default call-to-action URL"
-      },
-      {
-        "key": "brand_name",
-        "type": "string",
-        "default": "Synaplan",
-        "description": "Brand name used in generated content"
-      }
+      {"key": "enabled", "type": "boolean", "default": true, "description": "Enable Marketeer plugin"},
+      {"key": "default_language", "type": "string", "default": "en", "description": "Default language for content"},
+      {"key": "cta_url", "type": "string", "default": "https://web.synaplan.com", "description": "Default CTA URL"},
+      {"key": "brand_name", "type": "string", "default": "Synaplan", "description": "Brand name in generated content"},
+      {"key": "privacy_policy_url", "type": "string", "default": "", "description": "Privacy policy URL for compliance"},
+      {"key": "imprint_url", "type": "string", "default": "", "description": "Imprint/legal notice URL"},
+      {"key": "gtm_id", "type": "string", "default": "", "description": "Google Tag Manager container ID"},
+      {"key": "gads_conversion_id", "type": "string", "default": "", "description": "Google Ads conversion tracking ID"}
     ]
   }
 }
