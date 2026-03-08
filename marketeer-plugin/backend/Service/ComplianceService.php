@@ -20,12 +20,18 @@ final readonly class ComplianceService
      * @param array<string, mixed> $assets
      * @return array<string, mixed>
      */
-    public function quickComplianceCheck(array $campaign, array $assets): array
+    /**
+     * @param array<string, mixed> $campaign
+     * @param array<string, mixed> $assets
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>
+     */
+    public function quickComplianceCheck(array $campaign, array $assets, array $config = []): array
     {
         $checks = [];
 
-        $checks[] = $this->checkPrivacyPolicy($campaign, $assets);
-        $checks[] = $this->checkImprint($campaign, $assets);
+        $checks[] = $this->checkPrivacyPolicy($campaign, $assets, $config);
+        $checks[] = $this->checkImprint($campaign, $assets, $config);
         $checks[] = $this->checkCookieConsent($campaign, $assets);
         $checks[] = $this->checkTrackingConsent($campaign);
         $checks[] = $this->checkDataCollection($campaign);
@@ -128,44 +134,64 @@ HTML;
     /**
      * @return array{category: string, item: string, status: string, details: string}
      */
-    private function checkPrivacyPolicy(array $campaign, array $assets): array
+    private function checkPrivacyPolicy(array $campaign, array $assets, array $config = []): array
     {
-        $hasPrivacyLink = false;
+        $urlConfigured = !empty($config['privacy_policy_url']) && $config['privacy_policy_url'] !== '#';
+        $hasLinkInPage = false;
         foreach ($assets['pages'] ?? [] as $page) {
             if (str_contains($page['html'] ?? '', 'privacy') || str_contains($page['html'] ?? '', 'datenschutz')) {
-                $hasPrivacyLink = true;
+                $hasLinkInPage = true;
             }
+        }
+
+        if (!$urlConfigured) {
+            return [
+                'category' => 'GDPR',
+                'item' => 'Privacy policy URL',
+                'status' => 'fail',
+                'details' => 'No privacy policy URL configured. Set it in Plugin Settings → Legal Pages. Required by GDPR Art. 13.',
+            ];
         }
 
         return [
             'category' => 'GDPR',
             'item' => 'Privacy policy link on landing page',
-            'status' => $hasPrivacyLink ? 'pass' : 'warning',
-            'details' => $hasPrivacyLink
-                ? 'Privacy policy reference found in landing page'
-                : 'Ensure landing page links to your privacy policy (GDPR Art. 13)',
+            'status' => $hasLinkInPage ? 'pass' : 'warning',
+            'details' => $hasLinkInPage
+                ? 'Privacy policy URL configured and referenced in landing page'
+                : 'URL is configured but regenerate the landing page to include it',
         ];
     }
 
     /**
      * @return array{category: string, item: string, status: string, details: string}
      */
-    private function checkImprint(array $campaign, array $assets): array
+    private function checkImprint(array $campaign, array $assets, array $config = []): array
     {
-        $hasImprint = false;
+        $urlConfigured = !empty($config['imprint_url']) && $config['imprint_url'] !== '#';
+        $hasLinkInPage = false;
         foreach ($assets['pages'] ?? [] as $page) {
             if (str_contains($page['html'] ?? '', 'imprint') || str_contains($page['html'] ?? '', 'impressum')) {
-                $hasImprint = true;
+                $hasLinkInPage = true;
             }
+        }
+
+        if (!$urlConfigured) {
+            return [
+                'category' => 'Legal',
+                'item' => 'Imprint / Legal notice URL',
+                'status' => 'fail',
+                'details' => 'No imprint URL configured. Set it in Plugin Settings → Legal Pages. Required in Germany/Austria by TMG §5.',
+            ];
         }
 
         return [
             'category' => 'Legal',
             'item' => 'Imprint / Legal notice',
-            'status' => $hasImprint ? 'pass' : 'warning',
-            'details' => $hasImprint
-                ? 'Imprint reference found'
-                : 'Add imprint link if targeting EU (required in Germany, Austria by TMG §5)',
+            'status' => $hasLinkInPage ? 'pass' : 'warning',
+            'details' => $hasLinkInPage
+                ? 'Imprint URL configured and referenced in landing page'
+                : 'URL is configured but regenerate the landing page to include it',
         ];
     }
 

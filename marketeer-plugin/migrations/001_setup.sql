@@ -25,4 +25,7 @@ INSERT IGNORE INTO BCONFIG (BOWNERID, BGROUP, BSETTING, BVALUE)
 VALUES (:userId, :group, 'gtm_id', '');
 
 INSERT IGNORE INTO BCONFIG (BOWNERID, BGROUP, BSETTING, BVALUE)
-VALUES (:userId, :group, 'gads_conversion_id', '');
+VALUES (:userId, :group, 'default_brand_logo_url', '');
+
+INSERT IGNORE INTO BCONFIG (BOWNERID, BGROUP, BSETTING, BVALUE)
+VALUES (:userId, :group, 'default_color_scheme', 'dark backgrounds (#111) with vibrant accent');

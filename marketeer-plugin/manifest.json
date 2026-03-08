@@ -60,7 +60,9 @@
       {"key": "privacy_policy_url", "type": "string", "default": "", "description": "Privacy policy URL for compliance"},
       {"key": "imprint_url", "type": "string", "default": "", "description": "Imprint/legal notice URL"},
       {"key": "gtm_id", "type": "string", "default": "", "description": "Google Tag Manager container ID"},
-      {"key": "gads_conversion_id", "type": "string", "default": "", "description": "Google Ads conversion tracking ID"}
+      {"key": "gads_conversion_id", "type": "string", "default": "", "description": "Google Ads conversion tracking ID"},
+      {"key": "default_brand_logo_url", "type": "string", "default": "", "description": "Default URL for brand logo image"},
+      {"key": "default_color_scheme", "type": "string", "default": "dark backgrounds (#111) with vibrant accent", "description": "Default color scheme description"}
     ]
   }
 }

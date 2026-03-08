@@ -151,6 +151,7 @@ class MarketeerController extends AbstractController
         $allowedKeys = [
             'default_language', 'cta_url', 'brand_name',
             'privacy_policy_url', 'imprint_url', 'gtm_id', 'gads_conversion_id',
+            'default_accent_color', 'default_brand_logo_url', 'default_color_scheme',
         ];
         $updated = [];
 
@@ -396,11 +397,15 @@ class MarketeerController extends AbstractController
             'title' => $data['title'],
             'topic' => $data['topic'],
             'languages' => $data['languages'] ?? [$config['default_language']],
-            'cta_url' => $data['cta_url'] ?? $config['cta_url'],
+            'cta_url' => $data['cta_url'] ?? (!empty($data['ctas'][0]['url']) ? $data['ctas'][0]['url'] : $config['cta_url']),
             'target_audience' => $data['target_audience'] ?? '',
             'unique_selling_points' => $data['unique_selling_points'] ?? [],
             'platforms' => $data['platforms'] ?? ['google'],
             'ctas' => $data['ctas'] ?? [],
+            'accent_color' => $data['accent_color'] ?? $config['default_accent_color'] ?? '#00b79d',
+            'brand_logo_url' => $data['brand_logo_url'] ?? $config['default_brand_logo_url'] ?? '',
+            'color_scheme' => $data['color_scheme'] ?? $config['default_color_scheme'] ?? 'dark backgrounds (#111) with vibrant accent',
+            'modal_content' => $data['modal_content'] ?? '',
             'tracking' => $data['tracking'] ?? [
                 'gtm_id' => $config['gtm_id'] ?? '',
                 'gads_conversion_id' => $config['gads_conversion_id'] ?? '',
@@ -491,7 +496,8 @@ class MarketeerController extends AbstractController
         $allowedFields = [
             'title', 'topic', 'languages', 'cta_url', 'status',
             'target_audience', 'unique_selling_points', 'platforms',
-            'ctas', 'tracking', 'sort_order',
+            'ctas', 'tracking', 'sort_order', 'accent_color', 'modal_content',
+            'brand_logo_url', 'color_scheme',
         ];
 
         foreach ($allowedFields as $field) {
@@ -597,8 +603,6 @@ class MarketeerController extends AbstractController
             ], 0.7, 8000);
 
             $html = $this->contentGenerator->extractHtml($response['content']);
-
-            $html = $this->injectComplianceSnippets($html, $campaign, $config, $language);
 
             $pageKey = $campaignId . '_' . $language;
             $pageData = [
@@ -1411,9 +1415,10 @@ class MarketeerController extends AbstractController
             return $this->json(['success' => false, 'error' => 'Campaign not found'], Response::HTTP_NOT_FOUND);
         }
 
+        $config = $this->getPluginConfig($userId);
         $pages = $this->getCampaignPages($userId, $campaignId);
 
-        $result = $this->complianceService->quickComplianceCheck($campaign, ['pages' => $pages]);
+        $result = $this->complianceService->quickComplianceCheck($campaign, ['pages' => $pages], $config);
 
         return $this->json([
             'success' => true,
@@ -1656,6 +1661,36 @@ class MarketeerController extends AbstractController
         return $response;
     }
 
+    #[Route('/campaigns/{campaignId}/file/{filePath}', name: 'campaign_file_serve', requirements: ['filePath' => '.+'], methods: ['GET'])]
+    public function serveFile(
+        int $userId,
+        string $campaignId,
+        string $filePath,
+        #[CurrentUser] ?User $user,
+    ): Response {
+        if (!$this->canAccessPlugin($user, $userId)) {
+            return $this->json(['success' => false, 'error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $campaignDir = $this->landingPageService->getCampaignDir($userId, $campaignId);
+        $fullPath = $campaignDir . '/' . $filePath;
+        $realBase = realpath($campaignDir);
+        $realFile = realpath($fullPath);
+
+        if ($realBase === false || $realFile === false || !str_starts_with($realFile, $realBase)) {
+            return $this->json(['success' => false, 'error' => 'File not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $mimeTypes = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp', 'svg' => 'image/svg+xml', 'html' => 'text/html', 'txt' => 'text/plain', 'css' => 'text/css', 'js' => 'application/javascript'];
+        $ext = strtolower(pathinfo($realFile, PATHINFO_EXTENSION));
+        $mime = $mimeTypes[$ext] ?? 'application/octet-stream';
+
+        return new Response(file_get_contents($realFile), 200, [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'public, max-age=3600',
+        ]);
+    }
+
     // =========================================================================
     // Private Helpers
     // =========================================================================
@@ -1686,6 +1721,9 @@ class MarketeerController extends AbstractController
             'imprint_url' => '',
             'gtm_id' => '',
             'gads_conversion_id' => '',
+            'default_accent_color' => '#00b79d',
+            'default_brand_logo_url' => '',
+            'default_color_scheme' => 'dark backgrounds (#111) with vibrant accent',
         ];
 
         $config = [];
@@ -1749,35 +1787,7 @@ class MarketeerController extends AbstractController
         }
     }
 
-    /**
-     * Inject cookie consent and tracking snippets into generated HTML.
-     *
-     * @param array<string, mixed> $campaign
-     * @param array<string, mixed> $config
-     */
-    private function injectComplianceSnippets(
-        string $html,
-        array $campaign,
-        array $config,
-        string $language,
-    ): string {
-        $hasTracking = !empty($campaign['tracking']['gtm_id'])
-            || !empty($campaign['tracking']['gads_conversion_id']);
-
-        if (!$hasTracking) {
-            return $html;
-        }
-
-        $cookieSnippet = $this->complianceService->generateCookieConsentSnippet($config, $language);
-        $trackingSnippet = $this->complianceService->generateTrackingSnippets($campaign['tracking']);
-
-        $closingBody = '</body>';
-        if (str_contains($html, $closingBody)) {
-            $html = str_replace($closingBody, $trackingSnippet . "\n" . $cookieSnippet . "\n" . $closingBody, $html);
-        }
-
-        return $html;
-    }
+    
 
     /**
      * @return string[]
