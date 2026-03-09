@@ -85,7 +85,7 @@ const CSS = `
   .mk-label{display:block;font-size:12px;font-weight:600;color:var(--txt-secondary,#999);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
   .mk-field{margin-bottom:16px}
   .mk-tabs{display:flex;gap:0;border-bottom:2px solid var(--border-light,#333);margin-bottom:20px;overflow-x:auto}
-  .mk-tab{padding:10px 18px;font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;color:var(--txt-secondary,#999);transition:all .15s}
+  .mk-tab{padding:10px 18px;font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;color:var(--txt-secondary,#999);transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
   .mk-tab:hover{color:var(--txt-primary,#e0e0e0)}.mk-tab.active{color:var(--brand,#00b79d);border-bottom-color:var(--brand,#00b79d)}
   .mk-spinner{display:inline-block;width:16px;height:16px;border:2px solid transparent;border-top-color:currentColor;border-radius:50%;animation:mk-spin .6s linear infinite}
   @keyframes mk-spin{to{transform:rotate(360deg)}}
@@ -100,7 +100,7 @@ const CSS = `
   .mk-preview{border:1px solid var(--border-light,#444);border-radius:8px;overflow:hidden;background:#fff}
   .mk-preview iframe{width:100%;height:500px;border:none}
   .mk-sep{border:none;border-top:1px solid var(--border-light,#333);margin:20px 0}
-  .mk-back{cursor:pointer;color:var(--brand,#00b79d);font-size:13px;display:inline-flex;align-items:center;gap:4px;margin-bottom:16px}
+  .mk-back{cursor:pointer;color:var(--brand,#00b79d);font-size:13px;display:inline-flex;align-items:center;gap:4px;margin-bottom:16px;background:none;border:none;padding:0;font-family:inherit}
   .mk-back:hover{text-decoration:underline}
   .mk-stat{text-align:center;padding:12px}.mk-stat-num{font-size:28px;font-weight:700;color:var(--brand,#00b79d)}.mk-stat-lbl{font-size:11px;color:var(--txt-secondary,#999);text-transform:uppercase}
   .mk-toast{position:fixed;bottom:24px;right:24px;background:#00b79d;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;z-index:9999;animation:mk-fade .3s}
@@ -123,6 +123,7 @@ function h(tag, attrs, ...children) {
     else if (k.startsWith('on')) el.addEventListener(k.slice(2).toLowerCase(), v)
     else if (k === 'className') el.className = v
     else if (k === 'html') el.innerHTML = v
+    else if (k === 'value') el.value = v
     else el.setAttribute(k, v)
   })
   children.flat().forEach(c => { if (c != null) el.append(typeof c === 'string' ? c : c) })
@@ -297,7 +298,7 @@ export default {
       }
 
       d.campaigns.forEach(c => {
-        const card = h('div', { className: 'mk-card', style: { cursor: 'pointer' }, onClick: () => nav('campaign', { campaignId: c.id, tab: 'pages' }) },
+        const card = h('div', { className: 'mk-card', style: { cursor: 'pointer' }, role: 'button', tabindex: '0', onClick: () => nav('campaign', { campaignId: c.id, tab: 'pages' }) },
           h('div', { className: 'mk-row', style: { justifyContent: 'space-between' } },
             h('div', null,
               h('h3', { style: { margin: 0 } }, c.title),
@@ -326,7 +327,7 @@ export default {
       const form = { slug: '', title: '', topic: '', audience: '', usps: '', languages: ['en'], platforms: ['google'], ctas: [{ type: 'register', label: 'Start Free Trial', url: '' }] }
 
       root.append(
-        h('div', { className: 'mk-back', onClick: () => nav('dashboard') }, '← Back to campaigns'),
+        h('button', { className: 'mk-back', onClick: () => nav('dashboard') }, '← Back to campaigns'),
         h('h2', null, 'New Campaign'),
         h('p', { className: 'mk-sub' }, 'Describe your campaign idea. The AI will help you build everything from here.'),
       )
@@ -370,22 +371,27 @@ export default {
         if (!form.topic) { toast('Enter a topic first', true); return }
         const btn = container.querySelector('.mk-secondary')
         btn.disabled = true; btn.innerHTML = '<span class="mk-spinner"></span> Planning...'
-        const d = await api.post('/plan', { idea: form.topic, language: form.languages[0] || 'en' })
-        btn.disabled = false; btn.textContent = '✨ Plan with AI'
-        if (d.success && d.plan) {
-          const p = d.plan
-          if (p.campaign_name) form.slug = p.campaign_name
-          if (p.title) form.title = p.title
-          if (p.topic) form.topic = p.topic
-          if (p.target_audience) form.audience = p.target_audience
-          if (p.unique_selling_points) form.usps = p.unique_selling_points.join('\n')
-          if (p.recommended_platforms) form.platforms = p.recommended_platforms
-          if (p.languages) form.languages = p.languages
-          if (p.cta_suggestions?.length) form.ctas = p.cta_suggestions.map(c => ({ type: c.type, label: c.label, url: c.url_path || '' }))
-          toast('AI plan applied!')
-          renderStep1()
-        } else {
-          toast(d.error || 'Planning failed', true)
+        try {
+          const d = await api.post('/plan', { idea: form.topic, language: form.languages[0] || 'en' })
+          if (d.success && d.plan) {
+            const p = d.plan
+            if (p.campaign_name) form.slug = p.campaign_name
+            if (p.title) form.title = p.title
+            if (p.topic) form.topic = p.topic
+            if (p.target_audience) form.audience = p.target_audience
+            if (p.unique_selling_points) form.usps = p.unique_selling_points.join('\n')
+            if (p.recommended_platforms) form.platforms = p.recommended_platforms
+            if (p.languages) form.languages = p.languages
+            if (p.cta_suggestions?.length) form.ctas = p.cta_suggestions.map(c => ({ type: c.type, label: c.label, url: c.url_path || '' }))
+            toast('AI plan applied!')
+            renderStep1()
+          } else {
+            toast(d.error || 'Planning failed', true)
+          }
+        } catch (e) {
+          toast('Planning failed: ' + (e.message || 'Network error'), true)
+        } finally {
+          btn.disabled = false; btn.textContent = '✨ Plan with AI'
         }
       }
 
@@ -401,12 +407,16 @@ export default {
           platforms: form.platforms,
           ctas: form.ctas,
         }
-        const d = await api.post('/campaigns', body)
-        if (d.success) {
-          toast('Campaign created!')
-          nav('campaign', { campaignId: d.campaign.id, tab: 'pages' })
-        } else {
-          toast(d.error || 'Creation failed', true)
+        try {
+          const d = await api.post('/campaigns', body)
+          if (d.success) {
+            toast('Campaign created!')
+            nav('campaign', { campaignId: d.campaign.id, tab: 'pages' })
+          } else {
+            toast(d.error || 'Creation failed', true)
+          }
+        } catch (e) {
+          toast('Creation failed: ' + (e.message || 'Network error'), true)
         }
       }
 
@@ -423,7 +433,7 @@ export default {
 
       const c = d.campaign
       root.append(
-        h('div', { className: 'mk-back', onClick: () => nav('dashboard') }, '← Campaigns'),
+        h('button', { className: 'mk-back', onClick: () => nav('dashboard') }, '← Campaigns'),
         h('div', { className: 'mk-row', style: { justifyContent: 'space-between', marginBottom: '4px' } },
           h('h2', null, c.title),
           h('div', { className: 'mk-row' },
@@ -445,7 +455,7 @@ export default {
 
       const tabBar = h('div', { className: 'mk-tabs' })
       tabs.forEach(t => {
-        tabBar.append(h('div', {
+        tabBar.append(h('button', {
           className: `mk-tab${state.tab === t.id ? ' active' : ''}`,
           onClick: () => { state.tab = t.id; render() },
         }, t.label))
@@ -535,32 +545,49 @@ export default {
       const adCopy = data.ad_copy || {}
       const socialPosts = data.social_posts || {}
       const langs = campaign.languages || ['en']
-
-      const langSelect = h('select', { className: 'mk-input', style: { width: 'auto', marginBottom: '16px' } })
-      langs.forEach(l => langSelect.append(h('option', { value: l }, langLabel(l))))
-      ct.append(langSelect)
-
       const platforms = campaign.platforms || ['google']
+
       platforms.forEach(plat => {
         const pInfo = PLATFORMS.find(p => p.id === plat) || { icon: '📝', label: plat }
-        const existing = plat === 'google' ? Object.values(adCopy).find(a => a.language === langs[0]) : Object.values(socialPosts).find(s => s.platform === plat && s.language === langs[0])
+        const allExisting = langs.map(lang => {
+          if (plat === 'google') return Object.values(adCopy).find(a => a.language === lang) || null
+          return Object.values(socialPosts).find(s => s.platform === plat && s.language === lang) || null
+        })
+        const generatedCount = allExisting.filter(Boolean).length
 
         const card = h('div', { className: 'mk-card' })
         card.append(h('div', { className: 'mk-row', style: { justifyContent: 'space-between' } },
           h('h3', null, pInfo.icon + ' ' + pInfo.label),
-          existing ? h('span', { className: 'mk-badge mk-badge-active' }, 'Generated') : h('span', null),
+          generatedCount === langs.length
+            ? h('span', { className: 'mk-badge mk-badge-active' }, `${generatedCount}/${langs.length} languages`)
+            : generatedCount > 0
+              ? h('span', { className: 'mk-badge mk-badge-paused' }, `${generatedCount}/${langs.length} languages`)
+              : h('span', null),
         ))
 
-        if (existing) {
-          if (plat === 'google') renderGoogleAdPreview(card, existing)
-          else renderSocialPostPreview(card, existing, plat)
-        }
+        langs.forEach((lang, i) => {
+          const existing = allExisting[i]
+          const langSection = h('div', { style: { marginTop: i > 0 ? '16px' : '8px', paddingTop: i > 0 ? '12px' : '0', borderTop: i > 0 ? '1px solid var(--border-light,#333)' : 'none' } })
+          langSection.append(h('div', { style: { fontSize: '12px', fontWeight: '600', color: 'var(--txt-secondary,#999)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '.5px' } }, langLabel(lang)))
 
-        card.append(h('div', { style: { marginTop: '12px' } },
-          asyncBtn(existing ? '🔄 Regenerate' : '✨ Generate', existing ? 'mk-secondary' : 'mk-primary', async () => {
-            const lang = langSelect.value || langs[0]
-            const d = await api.post(`/campaigns/${campaign.id}/generate-ad-copy`, { platform: plat, language: lang })
-            if (d.success) { toast(`${pInfo.label} copy generated!`); render() } else toast(d.error || 'Failed', true)
+          if (existing) {
+            if (plat === 'google') renderGoogleAdPreview(langSection, existing)
+            else renderSocialPostPreview(langSection, existing, plat)
+          } else {
+            langSection.append(h('div', { style: { fontSize: '13px', color: 'var(--txt-secondary,#666)', fontStyle: 'italic', padding: '8px 0' } }, 'Not yet generated'))
+          }
+          card.append(langSection)
+        })
+
+        card.append(h('div', { style: { marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-light,#333)' } },
+          asyncBtn(generatedCount > 0 ? `🔄 Regenerate all ${langs.length} languages` : `✨ Generate all ${langs.length} languages`, generatedCount > 0 ? 'mk-secondary' : 'mk-primary', async (btn) => {
+            let ok = 0
+            for (let j = 0; j < langs.length; j++) {
+              btn.innerHTML = `<span class="mk-spinner"></span> ${j + 1}/${langs.length}: ${langLabel(langs[j])}...`
+              const d = await api.post(`/campaigns/${campaign.id}/generate-ad-copy`, { platform: plat, language: langs[j] })
+              if (d.success) ok++; else toast(`${langLabel(langs[j])}: ${d.error || 'Failed'}`, true)
+            }
+            if (ok > 0) { toast(`${pInfo.label}: ${ok}/${langs.length} languages generated!`); render() }
           }),
         ))
         ct.append(card)
@@ -596,62 +623,93 @@ export default {
 
     async function renderAdsTab(ct, campaign, data) {
       const adsCampaigns = data.ads_campaigns || {}
-      const entries = Object.values(adsCampaigns)
+      const allEntries = Object.values(adsCampaigns)
+      const langs = campaign.languages || ['en']
 
       ct.append(h('div', { className: 'mk-row', style: { justifyContent: 'space-between', marginBottom: '16px' } },
         h('h3', null, 'Google Ads Campaign Plans'),
-        asyncBtn('✨ Generate Plan', 'mk-primary', async () => {
-          const lang = (campaign.languages || ['en'])[0]
-          const d = await api.post(`/campaigns/${campaign.id}/ads-campaigns/generate`, { language: lang })
-          if (d.success) { toast('Ads plan generated!'); render() } else toast(d.error || 'Failed', true)
-        }),
+        h('div', { className: 'mk-row', style: { gap: '8px' } },
+          asyncBtn(`🔑 Keywords (all)`, 'mk-secondary', async (btn) => {
+            let totalKw = 0
+            for (let j = 0; j < langs.length; j++) {
+              btn.innerHTML = `<span class="mk-spinner"></span> Keywords ${j + 1}/${langs.length}: ${langLabel(langs[j])}...`
+              const d = await api.post(`/campaigns/${campaign.id}/generate-keywords`, { language: langs[j], count: 60 })
+              if (d.success) totalKw += d.count; else toast(`${langLabel(langs[j])}: ${d.error || 'Failed'}`, true)
+            }
+            if (totalKw > 0) toast(`${totalKw} keywords saved across ${langs.length} languages!`)
+          }),
+          asyncBtn(`✨ Generate all languages`, 'mk-primary', async (btn) => {
+            let ok = 0
+            for (let j = 0; j < langs.length; j++) {
+              btn.innerHTML = `<span class="mk-spinner"></span> ${j + 1}/${langs.length}: ${langLabel(langs[j])}...`
+              const d = await api.post(`/campaigns/${campaign.id}/ads-campaigns/generate`, { language: langs[j] })
+              if (d.success) ok++; else toast(`${langLabel(langs[j])}: ${d.error || 'Failed'}`, true)
+            }
+            if (ok > 0) { toast(`${ok}/${langs.length} Ads plans generated!`); render() }
+          }),
+        ),
       ))
 
-      if (!entries.length) {
-        ct.append(h('div', { className: 'mk-empty' }, h('p', null, 'No Google Ads plans yet. Generate one to get started.')))
-        return
-      }
-
-      // Also generate keyword file
-      ct.append(h('div', { style: { marginBottom: '16px' } },
-        asyncBtn('🔑 Generate Keyword File', 'mk-secondary', async () => {
-          const lang = (campaign.languages || ['en'])[0]
-          const d = await api.post(`/campaigns/${campaign.id}/generate-keywords`, { language: lang, count: 60 })
-          if (d.success) toast(`${d.count} keywords saved!`); else toast(d.error || 'Failed', true)
-        }),
-      ))
-
-      entries.forEach(ac => {
+      langs.forEach(lang => {
+        const entries = allEntries.filter(ac => ac.language === lang)
         const card = h('div', { className: 'mk-card' })
-        card.append(h('h3', null, ac.campaign_name || 'Untitled'))
-        card.append(h('div', { className: 'mk-row', style: { gap: '20px', marginBottom: '12px' } },
-          miniStat(ac.campaign_type || '—', 'Type'),
-          miniStat(ac.bidding_strategy || '—', 'Bidding'),
-          miniStat(ac.daily_budget_suggestion ? '$' + ac.daily_budget_suggestion + '/day' : '—', 'Budget'),
-          miniStat(String((ac.ad_groups || []).length), 'Ad Groups'),
+        card.append(h('div', { className: 'mk-row', style: { justifyContent: 'space-between', marginBottom: '10px' } },
+          h('h3', { style: { margin: 0 } }, langLabel(lang)),
+          entries.length
+            ? h('span', { className: 'mk-badge mk-badge-active' }, `${entries.length} plan${entries.length > 1 ? 's' : ''}`)
+            : h('span', { className: 'mk-badge mk-badge-draft' }, 'Not generated'),
         ))
 
-        const groups = ac.ad_groups || []
-        groups.forEach(g => {
-          const kws = g.keywords || []
-          const ads = g.ads || []
-          card.append(h('details', { style: { marginBottom: '8px' } },
-            h('summary', { style: { cursor: 'pointer', fontWeight: '600', fontSize: '13px', padding: '6px 0' } },
-              `${g.name} — ${kws.length} keywords · ${ads.length} ads`),
-            h('div', { className: 'mk-pre', style: { marginTop: '4px' } },
-              kws.map(k => {
-                const kw = typeof k === 'string' ? k : k.keyword
-                const mt = typeof k === 'object' ? ` [${k.match_type}]` : ''
-                return kw + mt
-              }).join('\n'),
-            ),
+        if (!entries.length) {
+          card.append(h('div', { style: { padding: '16px 0', textAlign: 'center', color: 'var(--txt-secondary,#666)', fontSize: '13px', fontStyle: 'italic' } },
+            'No Ads plan for this language yet.',
           ))
+        }
+
+        entries.forEach(ac => {
+          const planSection = h('div', { style: { padding: '12px', background: 'var(--bg-input,#151520)', borderRadius: '8px', marginBottom: '8px' } })
+          planSection.append(h('div', { className: 'mk-row', style: { justifyContent: 'space-between', marginBottom: '8px' } },
+            h('div', { style: { fontWeight: '600', fontSize: '14px' } }, ac.campaign_name || 'Untitled'),
+            asyncBtn('🗑', 'mk-danger', async () => {
+              await api.del(`/campaigns/${campaign.id}/ads-campaigns/${ac.id}`)
+              toast('Plan deleted'); render()
+            }, { style: { padding: '3px 8px', fontSize: '11px' } }),
+          ))
+          planSection.append(h('div', { className: 'mk-row', style: { gap: '16px', marginBottom: '8px' } },
+            miniStat(ac.campaign_type || '—', 'Type'),
+            miniStat(ac.bidding_strategy || '—', 'Bidding'),
+            miniStat(ac.daily_budget_suggestion ? '$' + ac.daily_budget_suggestion + '/day' : '—', 'Budget'),
+            miniStat(String((ac.ad_groups || []).length), 'Ad Groups'),
+          ))
+          const groups = ac.ad_groups || []
+          groups.forEach(g => {
+            const kws = g.keywords || []
+            const ads = g.ads || []
+            planSection.append(h('details', { style: { marginBottom: '6px' } },
+              h('summary', { style: { cursor: 'pointer', fontWeight: '600', fontSize: '12px', padding: '4px 0' } },
+                `${g.name} — ${kws.length} keywords · ${ads.length} ads`),
+              h('div', { className: 'mk-pre', style: { marginTop: '4px', fontSize: '11px' } },
+                kws.map(k => {
+                  const kw = typeof k === 'string' ? k : k.keyword
+                  const mt = typeof k === 'object' ? ` [${k.match_type}]` : ''
+                  return kw + mt
+                }).join('\n'),
+              ),
+            ))
+          })
+          card.append(planSection)
         })
 
-        card.append(h('div', { className: 'mk-row', style: { marginTop: '12px' } },
-          asyncBtn('🗑 Delete', 'mk-danger', async () => {
-            await api.del(`/campaigns/${campaign.id}/ads-campaigns/${ac.id}`)
-            toast('Plan deleted'); render()
+        card.append(h('div', { className: 'mk-row', style: { marginTop: '8px', gap: '8px' } },
+          asyncBtn(entries.length ? '🔄 Regenerate' : '✨ Generate', entries.length ? 'mk-secondary' : 'mk-primary', async (btn) => {
+            btn.innerHTML = `<span class="mk-spinner"></span> ${langLabel(lang)}...`
+            const d = await api.post(`/campaigns/${campaign.id}/ads-campaigns/generate`, { language: lang })
+            if (d.success) { toast(`${langLabel(lang)} Ads plan generated!`); render() } else toast(d.error || 'Failed', true)
+          }),
+          asyncBtn('🔑 Keywords', 'mk-secondary', async (btn) => {
+            btn.innerHTML = `<span class="mk-spinner"></span> Keywords...`
+            const d = await api.post(`/campaigns/${campaign.id}/generate-keywords`, { language: lang, count: 60 })
+            if (d.success) toast(`${d.count} ${langLabel(lang)} keywords saved!`); else toast(d.error || 'Failed', true)
           }),
         ))
         ct.append(card)
@@ -675,145 +733,118 @@ export default {
       const files = data.files || []
       const langs = campaign.languages || ['en']
       const imageFiles = files.filter(f => f.path.includes('/images/'))
+      const videoFiles = files.filter(f => f.path.includes('/videos/'))
 
-      const langSelect = h('select', { className: 'mk-input', style: { width: 'auto', marginBottom: '16px' } })
-      langs.forEach(l => langSelect.append(h('option', { value: l }, langLabel(l))))
-      ct.append(langSelect)
+      langs.forEach(lang => {
+        const langCard = h('div', { className: 'mk-card' })
+        const langImages = imageFiles.filter(f => f.path.includes(`/${lang}/images/`))
+        const generatedCount = IMG_TYPES.filter(img => langImages.some(f => f.path.includes(`/${lang}/images/${img.id}.`))).length
 
-      const grid = h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px' } })
+        langCard.append(h('div', { className: 'mk-row', style: { justifyContent: 'space-between', marginBottom: '12px' } },
+          h('h3', { style: { margin: 0 } }, langLabel(lang) + ' Images'),
+          generatedCount > 0
+            ? h('span', { className: generatedCount === IMG_TYPES.length ? 'mk-badge mk-badge-active' : 'mk-badge mk-badge-paused' }, `${generatedCount}/${IMG_TYPES.length}`)
+            : h('span', { className: 'mk-badge mk-badge-draft' }, 'None'),
+        ))
 
-      IMG_TYPES.forEach(img => {
-        const lang = langSelect.value || langs[0]
-        const existing = imageFiles.find(f => f.path.includes(`/${lang}/images/${img.id}.`))
-        const card = h('div', { className: 'mk-card', style: { padding: '0', overflow: 'hidden' } })
+        const grid = h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' } })
 
-        if (existing) {
-          const rel = `${lang}/images/${img.id}.png`
-          const url = fileUrl(campaign.id, rel)
-          const thumbWrap = h('div', { style: { width: '100%', height: '140px', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative' } })
-          const imgEl = h('img', { src: url, style: { maxWidth: '100%', maxHeight: '140px', objectFit: 'contain' } })
-          imgEl.onerror = () => { imgEl.style.display = 'none'; thumbWrap.append(h('div', { style: { color: '#666', fontSize: '13px' } }, 'Preview unavailable')) }
-          thumbWrap.append(imgEl)
-          thumbWrap.addEventListener('click', () => window.open(url, '_blank'))
-          card.append(thumbWrap)
+        IMG_TYPES.forEach(img => {
+          const existing = langImages.find(f => f.path.includes(`/${lang}/images/${img.id}.`))
+          const tile = h('div', { style: { border: '1px solid var(--border-light,#333)', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-input,#151520)' } })
 
-          const info = h('div', { style: { padding: '10px 12px' } })
-          info.append(h('div', { style: { fontWeight: '600', fontSize: '13px', marginBottom: '2px' } }, img.label))
-          info.append(h('div', { style: { fontSize: '11px', color: 'var(--txt-secondary)', marginBottom: '8px' } }, img.dim + ' · ' + formatSize(existing.size)))
+          if (existing) {
+            const rel = `${lang}/images/${img.id}.png`
+            const url = fileUrl(campaign.id, rel)
+            const thumb = h('div', { style: { height: '110px', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' } })
+            const imgEl = h('img', { src: url, style: { maxWidth: '100%', maxHeight: '110px', objectFit: 'contain' } })
+            imgEl.onerror = () => { imgEl.style.display = 'none'; thumb.append(h('div', { style: { color: '#666', fontSize: '11px' } }, 'N/A')) }
+            thumb.append(imgEl)
+            thumb.addEventListener('click', () => window.open(url, '_blank'))
+            tile.append(thumb)
 
-          const actions = h('div', { className: 'mk-row', style: { gap: '6px', flexWrap: 'wrap' } })
-          actions.append(h('button', { className: 'mk-btn mk-secondary', style: { padding: '4px 10px', fontSize: '11px' }, onClick: () => { navigator.clipboard.writeText(url); toast('URL copied!') } }, '📋 Copy URL'))
-          actions.append(h('a', { href: url, download: `${img.id}.png`, className: 'mk-btn mk-secondary', style: { padding: '4px 10px', fontSize: '11px', textDecoration: 'none' } }, '⬇ Download'))
-          actions.append(asyncBtn('🔄', 'mk-secondary', async () => {
-            const d = await api.post(`/campaigns/${campaign.id}/generate-image`, { type: img.id, language: lang })
-            if (d.success) { toast(`${img.label} regenerated!`); render() } else toast(d.error || 'Failed', true)
-          }, { style: { padding: '4px 10px', fontSize: '11px' } }))
+            tile.append(h('div', { style: { padding: '8px 10px' } },
+              h('div', { style: { fontWeight: '600', fontSize: '12px' } }, img.label),
+              h('div', { style: { fontSize: '10px', color: 'var(--txt-secondary)', marginBottom: '6px' } }, img.dim),
+              h('div', { className: 'mk-row', style: { gap: '4px' } },
+                h('button', { className: 'mk-btn mk-secondary', style: { padding: '3px 8px', fontSize: '10px' }, onClick: () => { navigator.clipboard.writeText(url); toast('Copied!') } }, '📋'),
+                h('a', { href: url, download: `${img.id}.png`, className: 'mk-btn mk-secondary', style: { padding: '3px 8px', fontSize: '10px', textDecoration: 'none' } }, '⬇'),
+                asyncBtn('🔄', 'mk-secondary', async () => {
+                  const d = await api.post(`/campaigns/${campaign.id}/generate-image`, { type: img.id, language: lang })
+                  if (d.success) { toast(`${img.label} regenerated!`); render() } else toast(d.error || 'Failed', true)
+                }, { style: { padding: '3px 8px', fontSize: '10px' } }),
+              ),
+            ))
+          } else {
+            tile.append(h('div', { style: { padding: '16px 10px', textAlign: 'center' } },
+              h('div', { style: { fontSize: '22px', marginBottom: '4px', opacity: 0.3 } }, '🖼'),
+              h('div', { style: { fontWeight: '600', fontSize: '12px' } }, img.label),
+              h('div', { style: { fontSize: '10px', color: 'var(--txt-secondary)', marginBottom: '8px' } }, img.dim),
+              asyncBtn('✨ Generate', 'mk-primary', async () => {
+                const d = await api.post(`/campaigns/${campaign.id}/generate-image`, { type: img.id, language: lang })
+                if (d.success) { toast(`${img.label} generated!`); render() } else toast(d.error || 'Failed', true)
+              }, { style: { width: '100%', justifyContent: 'center', padding: '5px 10px', fontSize: '11px' } }),
+            ))
+          }
+          grid.append(tile)
+        })
 
-          info.append(actions)
-          card.append(info)
-        } else {
-          const empty = h('div', { style: { padding: '20px 14px', textAlign: 'center' } })
-          empty.append(h('div', { style: { fontSize: '28px', marginBottom: '6px', opacity: 0.3 } }, '🖼'))
-          empty.append(h('div', { style: { fontWeight: '600', fontSize: '13px' } }, img.label))
-          empty.append(h('div', { style: { fontSize: '11px', color: 'var(--txt-secondary)', marginBottom: '10px' } }, img.dim))
-          empty.append(asyncBtn('✨ Generate', 'mk-primary', async () => {
-            const d = await api.post(`/campaigns/${campaign.id}/generate-image`, { type: img.id, language: langSelect.value || langs[0] })
-            if (d.success) { toast(`${img.label} generated!`); render() } else toast(d.error || 'Failed', true)
-          }, { style: { width: '100%', justifyContent: 'center' } }))
-          card.append(empty)
-        }
+        langCard.append(grid)
 
-        grid.append(card)
+        langCard.append(h('div', { style: { marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-light,#333)' } },
+          asyncBtn(generatedCount > 0 ? '🔄 Regenerate all images' : '✨ Generate all images', generatedCount > 0 ? 'mk-secondary' : 'mk-primary', async (btn) => {
+            let ok = 0
+            for (let i = 0; i < IMG_TYPES.length; i++) {
+              btn.innerHTML = `<span class="mk-spinner"></span> ${i + 1}/${IMG_TYPES.length}: ${IMG_TYPES[i].label}...`
+              const d = await api.post(`/campaigns/${campaign.id}/generate-image`, { type: IMG_TYPES[i].id, language: lang })
+              if (d.success) ok++; else toast(`${IMG_TYPES[i].label}: ${d.error || 'Failed'}`, true)
+            }
+            if (ok > 0) { toast(`${langLabel(lang)}: ${ok}/${IMG_TYPES.length} images generated!`); render() }
+          }),
+        ))
+        ct.append(langCard)
       })
 
-      ct.append(grid)
-
-      // ── Promotional Video (optional) ──
-      const videoFiles = files.filter(f => f.path.includes('/videos/'))
-      const lang = langSelect.value || langs[0]
-      const existingVideo = videoFiles.find(f => f.path.includes(`/${lang}/videos/promo.mp4`))
-
+      // ── Promotional Video ──
       ct.append(h('h3', { style: { marginTop: '28px', fontSize: '15px', fontWeight: '600' } }, 'Promotional Video (optional)'))
       ct.append(h('p', { style: { fontSize: '12px', color: 'var(--txt-secondary)', marginBottom: '12px' } },
         'Generate a short AI video clip for Performance Max, YouTube, or social media campaigns.'))
 
-      const videoCard = h('div', { className: 'mk-card' })
+      langs.forEach(lang => {
+        const existingVideo = videoFiles.find(f => f.path.includes(`/${lang}/videos/promo.mp4`))
+        const vCard = h('div', { className: 'mk-card' })
+        vCard.append(h('div', { className: 'mk-row', style: { justifyContent: 'space-between', marginBottom: '10px' } },
+          h('h3', { style: { margin: 0, fontSize: '14px' } }, langLabel(lang) + ' Video'),
+          existingVideo ? h('span', { className: 'mk-badge mk-badge-active' }, 'Generated') : h('span', { className: 'mk-badge mk-badge-draft' }, 'None'),
+        ))
 
-      if (existingVideo) {
-        const rel = `${lang}/videos/promo.mp4`
-        const url = fileUrl(campaign.id, rel)
-        const player = h('video', {
-          src: url,
-          controls: true,
-          style: { width: '100%', maxHeight: '300px', borderRadius: '8px', background: '#000', marginBottom: '12px' }
-        })
-        videoCard.append(player)
-
-        const meta = h('div', { style: { fontSize: '12px', color: 'var(--txt-secondary)', marginBottom: '10px' } },
-          `promo.mp4 · ${formatSize(existingVideo.size)}`)
-        videoCard.append(meta)
-
-        const actions = h('div', { className: 'mk-row', style: { gap: '8px', flexWrap: 'wrap' } })
-        actions.append(h('a', {
-          href: url,
-          download: 'promo.mp4',
-          className: 'mk-btn mk-secondary',
-          style: { padding: '6px 14px', fontSize: '12px', textDecoration: 'none' }
-        }, '⬇ Download'))
-        actions.append(h('button', {
-          className: 'mk-btn mk-secondary',
-          style: { padding: '6px 14px', fontSize: '12px' },
-          onClick: () => { navigator.clipboard.writeText(url); toast('URL copied!') }
-        }, '📋 Copy URL'))
-
-        const regenWrap = h('div', { style: { marginTop: '14px', borderTop: '1px solid var(--border-light,#333)', paddingTop: '14px' } })
-        regenWrap.append(h('div', { style: { fontWeight: '600', fontSize: '13px', marginBottom: '8px' } }, 'Regenerate'))
-        const regenDesc = h('textarea', {
-          className: 'mk-input',
-          rows: 2,
-          placeholder: 'Describe the video you want (leave empty for auto-generated prompt)...',
-          style: { width: '100%', resize: 'vertical', marginBottom: '8px' }
-        })
-        const regenDur = h('select', { className: 'mk-input', style: { width: 'auto', marginBottom: '8px', marginRight: '8px' } })
-        ;[4, 6, 8].forEach(d => regenDur.append(h('option', { value: d, selected: d === 6 }, `${d} seconds`)))
-        regenWrap.append(regenDesc, regenDur)
-        regenWrap.append(asyncBtn('🔄 Regenerate Video', 'mk-secondary', async () => {
-          const d = await api.post(`/campaigns/${campaign.id}/generate-video`, {
-            description: regenDesc.value || undefined,
-            language: langSelect.value || langs[0],
-            duration: parseInt(regenDur.value)
-          })
-          if (d.success) { toast('Video regenerated!'); render() } else toast(d.error || 'Failed', true)
-        }))
-        actions.append()
-        videoCard.append(actions, regenWrap)
-      } else {
-        const descInput = h('textarea', {
-          className: 'mk-input',
-          rows: 3,
-          placeholder: 'Describe the video you want, e.g. "A sleek motion-graphics intro with the brand logo and teal accents, transitioning to abstract tech visuals"... (leave empty for auto-generated prompt)',
-          style: { width: '100%', resize: 'vertical', marginBottom: '10px' }
-        })
-        const durSelect = h('select', { className: 'mk-input', style: { width: 'auto', marginBottom: '10px', marginRight: '8px' } })
-        ;[4, 6, 8].forEach(d => durSelect.append(h('option', { value: d, selected: d === 6 }, `${d} seconds`)))
-
-        const hint = h('div', { style: { fontSize: '11px', color: 'var(--txt-secondary)', marginBottom: '10px' } },
-          'Video generation takes 1-2 minutes. Uses your configured video model (e.g. Veo 3.1).')
-
-        videoCard.append(descInput, durSelect, hint)
-        videoCard.append(asyncBtn('🎬 Generate Video', 'mk-primary', async () => {
-          const d = await api.post(`/campaigns/${campaign.id}/generate-video`, {
-            description: descInput.value || undefined,
-            language: langSelect.value || langs[0],
-            duration: parseInt(durSelect.value)
-          })
-          if (d.success) { toast('Video generated!'); render() } else toast(d.error || 'Failed', true)
-        }, { style: { width: '100%', justifyContent: 'center' } }))
-      }
-
-      ct.append(videoCard)
-
-      langSelect.addEventListener('change', () => render())
+        if (existingVideo) {
+          const rel = `${lang}/videos/promo.mp4`
+          const url = fileUrl(campaign.id, rel)
+          vCard.append(h('video', { src: url, controls: true, style: { width: '100%', maxHeight: '260px', borderRadius: '8px', background: '#000', marginBottom: '10px' } }))
+          vCard.append(h('div', { className: 'mk-row', style: { gap: '8px', marginBottom: '10px' } },
+            h('a', { href: url, download: `promo_${lang}.mp4`, className: 'mk-btn mk-secondary', style: { padding: '5px 12px', fontSize: '12px', textDecoration: 'none' } }, '⬇ Download'),
+            h('button', { className: 'mk-btn mk-secondary', style: { padding: '5px 12px', fontSize: '12px' }, onClick: () => { navigator.clipboard.writeText(url); toast('URL copied!') } }, '📋 Copy URL'),
+          ))
+          const regenDesc = h('textarea', { className: 'mk-input', rows: 2, placeholder: 'New description (leave empty for auto)...', style: { width: '100%', resize: 'vertical', marginBottom: '8px' } })
+          const regenDur = h('select', { className: 'mk-input', style: { width: 'auto', marginBottom: '8px', marginRight: '8px' } })
+          ;[4, 6, 8].forEach(d => regenDur.append(h('option', { value: d, selected: d === 6 }, `${d}s`)))
+          vCard.append(regenDesc, h('div', { className: 'mk-row', style: { gap: '8px' } }, regenDur, asyncBtn('🔄 Regenerate', 'mk-secondary', async () => {
+            const d = await api.post(`/campaigns/${campaign.id}/generate-video`, { description: regenDesc.value || undefined, language: lang, duration: parseInt(regenDur.value) })
+            if (d.success) { toast(`${langLabel(lang)} video regenerated!`); render() } else toast(d.error || 'Failed', true)
+          })))
+        } else {
+          const descInput = h('textarea', { className: 'mk-input', rows: 2, placeholder: 'Describe the video (leave empty for auto-generated prompt)...', style: { width: '100%', resize: 'vertical', marginBottom: '8px' } })
+          const durSelect = h('select', { className: 'mk-input', style: { width: 'auto', marginBottom: '8px', marginRight: '8px' } })
+          ;[4, 6, 8].forEach(d => durSelect.append(h('option', { value: d, selected: d === 6 }, `${d}s`)))
+          vCard.append(descInput, h('div', { className: 'mk-row', style: { gap: '8px' } }, durSelect, asyncBtn('🎬 Generate Video', 'mk-primary', async () => {
+            const d = await api.post(`/campaigns/${campaign.id}/generate-video`, { description: descInput.value || undefined, language: lang, duration: parseInt(durSelect.value) })
+            if (d.success) { toast(`${langLabel(lang)} video generated!`); render() } else toast(d.error || 'Failed', true)
+          })))
+          vCard.append(h('div', { style: { fontSize: '11px', color: 'var(--txt-secondary)', marginTop: '6px' } }, 'Takes 1-2 min. Uses your configured video model.'))
+        }
+        ct.append(vCard)
+      })
     }
 
     function formatSize(bytes) {
@@ -825,6 +856,7 @@ export default {
     // ── Compliance Tab ───────────────────────────────────────────────────
 
     async function renderComplianceTab(ct, campaign) {
+      const langs = campaign.languages || ['en']
       const quickRes = await api.get(`/campaigns/${campaign.id}/compliance`)
       if (!quickRes.success) { ct.append(h('p', null, quickRes.error)); return }
 
@@ -844,48 +876,65 @@ export default {
         ),
       ))
 
-      ct.append(h('div', { className: 'mk-card' },
-        h('h3', null, 'Tools'),
-        h('div', { className: 'mk-row' },
-          asyncBtn('🤖 AI Compliance Review', 'mk-secondary', async () => {
-            const lang = (campaign.languages || ['en'])[0]
-            const d = await api.post(`/campaigns/${campaign.id}/compliance/ai-review`, { language: lang })
+      const toolsCard = h('div', { className: 'mk-card' })
+      toolsCard.append(h('h3', null, 'Tools'))
+
+      const resultsContainer = h('div')
+
+      toolsCard.append(h('div', { className: 'mk-row', style: { gap: '8px', flexWrap: 'wrap' } },
+        asyncBtn(`🤖 AI Compliance Review (${langs.length} lang${langs.length > 1 ? 's' : ''})`, 'mk-secondary', async (btn) => {
+          resultsContainer.innerHTML = ''
+          for (let j = 0; j < langs.length; j++) {
+            btn.innerHTML = `<span class="mk-spinner"></span> Reviewing ${j + 1}/${langs.length}: ${langLabel(langs[j])}...`
+            const d = await api.post(`/campaigns/${campaign.id}/compliance/ai-review`, { language: langs[j] })
             if (d.success) {
-              const r = d.review
-              const area = h('div', { className: 'mk-pre', style: { marginTop: '12px', maxHeight: '500px' } })
-              area.textContent = JSON.stringify(r, null, 2)
-              ct.append(area)
-              toast('AI review complete')
-            } else toast(d.error || 'Failed', true)
-          }),
-          asyncBtn('🍪 Cookie Consent Snippet', 'mk-secondary', async () => {
-            const lang = (campaign.languages || ['en'])[0]
-            const d = await api.get(`/compliance/cookie-snippet?language=${lang}`)
+              const section = h('div', { className: 'mk-card', style: { marginTop: '12px' } })
+              section.append(h('h3', { style: { fontSize: '14px' } }, langLabel(langs[j]) + ' — AI Review'))
+              const area = h('div', { className: 'mk-pre', style: { maxHeight: '400px' } })
+              area.textContent = JSON.stringify(d.review, null, 2)
+              section.append(area)
+              resultsContainer.append(section)
+            } else toast(`${langLabel(langs[j])}: ${d.error || 'Failed'}`, true)
+          }
+          toast('AI review complete for all languages')
+        }),
+        asyncBtn('🍪 Cookie Consent Snippets', 'mk-secondary', async (btn) => {
+          resultsContainer.innerHTML = ''
+          for (let j = 0; j < langs.length; j++) {
+            btn.innerHTML = `<span class="mk-spinner"></span> ${j + 1}/${langs.length}: ${langLabel(langs[j])}...`
+            const d = await api.get(`/compliance/cookie-snippet?language=${langs[j]}`)
             if (d.success) {
-              const area = h('div', { className: 'mk-pre', style: { marginTop: '12px' } })
+              const section = h('div', { className: 'mk-card', style: { marginTop: '12px' } })
+              section.append(h('h3', { style: { fontSize: '14px' } }, langLabel(langs[j]) + ' — Cookie Consent'))
+              const area = h('div', { className: 'mk-pre' })
               area.textContent = d.cookie_consent_html
-              ct.append(area)
-              toast('Snippet loaded')
+              section.append(area)
+              resultsContainer.append(section)
             }
-          }),
-          asyncBtn('🚀 Pre-Launch Check', 'mk-secondary', async () => {
-            const d = await api.post(`/campaigns/${campaign.id}/checklist`)
-            if (d.success) {
-              const cl = d.checklist
-              const area = h('div', { className: 'mk-card', style: { marginTop: '12px' } },
-                h('div', { className: 'mk-row', style: { justifyContent: 'space-between' } },
-                  h('h3', null, 'Launch Readiness'),
-                  h('div', { className: 'mk-stat' }, h('div', { className: 'mk-stat-num' }, String(cl.score || '?')), h('div', { className: 'mk-stat-lbl' }, 'Score')),
-                ),
-                ...(cl.blocking_issues || []).map(b => h('div', { style: { padding: '4px 0', fontSize: '13px', color: '#e74c3c' } }, '❌ ' + b)),
-                ...(cl.recommendations || []).map(r => h('div', { style: { padding: '4px 0', fontSize: '13px', color: 'var(--txt-secondary)' } }, '💡 ' + r)),
-              )
-              ct.append(area)
-              toast('Checklist complete')
-            } else toast(d.error || 'Failed', true)
-          }),
-        ),
+          }
+          toast('Snippets loaded')
+        }),
+        asyncBtn('🚀 Pre-Launch Check', 'mk-secondary', async () => {
+          resultsContainer.innerHTML = ''
+          const d = await api.post(`/campaigns/${campaign.id}/checklist`)
+          if (d.success) {
+            const cl = d.checklist
+            const area = h('div', { className: 'mk-card', style: { marginTop: '12px' } },
+              h('div', { className: 'mk-row', style: { justifyContent: 'space-between' } },
+                h('h3', null, 'Launch Readiness'),
+                h('div', { className: 'mk-stat' }, h('div', { className: 'mk-stat-num' }, String(cl.score || '?')), h('div', { className: 'mk-stat-lbl' }, 'Score')),
+              ),
+              ...(cl.blocking_issues || []).map(b => h('div', { style: { padding: '4px 0', fontSize: '13px', color: '#e74c3c' } }, '❌ ' + b)),
+              ...(cl.recommendations || []).map(r => h('div', { style: { padding: '4px 0', fontSize: '13px', color: 'var(--txt-secondary)' } }, '💡 ' + r)),
+            )
+            resultsContainer.append(area)
+            toast('Checklist complete')
+          } else toast(d.error || 'Failed', true)
+        }),
       ))
+
+      ct.append(toolsCard)
+      ct.append(resultsContainer)
     }
 
     function statusIcon(s) {
@@ -1032,7 +1081,7 @@ export default {
 
     async function renderConfig() {
       root.innerHTML = ''
-      root.append(h('div', { className: 'mk-back', onClick: () => nav('dashboard') }, '← Back'))
+      root.append(h('button', { className: 'mk-back', onClick: () => nav('dashboard') }, '← Back'))
       root.append(h('h2', null, 'Plugin Settings'), h('p', { className: 'mk-sub' }, 'Defaults for all new campaigns.'))
 
       const d = await api.get('/config')

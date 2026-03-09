@@ -237,6 +237,10 @@ final readonly class LandingPageService
             if ($file->isFile()) {
                 $relativePath = substr($file->getPathname(), $prefixLen);
                 $zip->addFile($file->getPathname(), $campaignSlug . '/' . $relativePath);
+
+                if (preg_match('#^([a-z]{2})/keywords\.txt$#', $relativePath, $m)) {
+                    $zip->addFile($file->getPathname(), $campaignSlug . '/keywords_' . $m[1] . '.txt');
+                }
             }
         }
 
