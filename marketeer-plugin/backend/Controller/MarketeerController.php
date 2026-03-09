@@ -1836,6 +1836,86 @@ class MarketeerController extends AbstractController
 
         $zipPath = $this->landingPageService->createZip($userId, $campaignId);
 
+        $zip = new \ZipArchive();
+        $zip->open($zipPath, \ZipArchive::CREATE);
+
+        $slug = $campaignId;
+
+        $meta = $campaign;
+        unset($meta['modal_content']);
+        $zip->addFromString("{$slug}/campaign.json", json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        $adCopies = $this->adCopyService->listAdCopy($userId, $campaignId);
+        $socialPosts = $this->adCopyService->listSocialPosts($userId, $campaignId);
+
+        foreach ($adCopies as $data) {
+            $lang = $data['language'] ?? 'unknown';
+            $zip->addFromString(
+                "{$slug}/ad-copy/google_{$lang}.json",
+                json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            );
+        }
+
+        foreach ($socialPosts as $data) {
+            $platform = $data['platform'] ?? 'unknown';
+            $lang = $data['language'] ?? 'unknown';
+            $zip->addFromString(
+                "{$slug}/ad-copy/{$platform}_{$lang}.json",
+                json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            );
+        }
+
+        $adsCampaigns = $this->adsPlannerService->listForCampaign($userId, $campaignId);
+        foreach ($adsCampaigns as $adsCamp) {
+            $adsId = $adsCamp['id'] ?? 'unknown';
+            $adsLang = $adsCamp['language'] ?? 'all';
+            $adsName = preg_replace('/[^a-z0-9_-]/i', '_', $adsCamp['campaign_name'] ?? $adsId);
+
+            $zip->addFromString(
+                "{$slug}/google-ads/{$adsName}_{$adsLang}.json",
+                json_encode($adsCamp, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            );
+
+            $export = $this->adsPlannerService->exportKeywords($userId, $campaignId, $adsId);
+            if (!empty($export['keywords'])) {
+                $csvLines = ["Campaign,Ad Group,Keyword,Match Type"];
+                $campName = $adsCamp['campaign_name'] ?? $adsId;
+
+                foreach ($adsCamp['ad_groups'] ?? [] as $group) {
+                    $groupName = $group['ad_group_name'] ?? 'Default';
+                    foreach ($group['keywords'] ?? [] as $kw) {
+                        $keyword = is_array($kw) ? ($kw['keyword'] ?? '') : (string) $kw;
+                        $matchType = is_array($kw) ? ($kw['match_type'] ?? 'Broad') : 'Broad';
+                        if ($keyword === '') {
+                            continue;
+                        }
+                        $csvLines[] = $this->csvRow([$campName, $groupName, $keyword, ucfirst($matchType)]);
+                    }
+                }
+
+                $zip->addFromString(
+                    "{$slug}/google-ads/{$adsName}_{$adsLang}_keywords.csv",
+                    implode("\n", $csvLines) . "\n",
+                );
+            }
+
+            if (!empty($export['negative_keywords'])) {
+                $negLines = ["Campaign,Keyword"];
+                $campName = $adsCamp['campaign_name'] ?? $adsId;
+                foreach ($export['negative_keywords'] as $neg) {
+                    $negLines[] = $this->csvRow([$campName, $neg]);
+                }
+                $zip->addFromString(
+                    "{$slug}/google-ads/{$adsName}_{$adsLang}_negative_keywords.csv",
+                    implode("\n", $negLines) . "\n",
+                );
+            }
+
+            $this->addGoogleAdsEditorCsv($zip, $slug, $adsCamp);
+        }
+
+        $zip->close();
+
         $response = new StreamedResponse(function () use ($zipPath): void {
             readfile($zipPath);
             @unlink($zipPath);
@@ -1845,6 +1925,65 @@ class MarketeerController extends AbstractController
         $response->headers->set('Content-Disposition', "attachment; filename=\"{$campaignId}.zip\"");
 
         return $response;
+    }
+
+    /**
+     * @param string[] $fields
+     */
+    private function csvRow(array $fields): string
+    {
+        return implode(',', array_map(
+            fn (string $f) => '"' . str_replace('"', '""', $f) . '"',
+            $fields,
+        ));
+    }
+
+    /**
+     * @param array<string, mixed> $adsCamp
+     */
+    private function addGoogleAdsEditorCsv(\ZipArchive $zip, string $slug, array $adsCamp): void
+    {
+        $adsId = $adsCamp['id'] ?? 'unknown';
+        $adsLang = $adsCamp['language'] ?? 'all';
+        $adsName = preg_replace('/[^a-z0-9_-]/i', '_', $adsCamp['campaign_name'] ?? $adsId);
+        $campName = $adsCamp['campaign_name'] ?? $adsId;
+        $budget = $adsCamp['daily_budget_suggestion'] ?? '';
+        $bidding = $adsCamp['bidding_strategy'] ?? '';
+
+        $lines = [
+            $this->csvRow(['Campaign', 'Campaign Daily Budget', 'Bid Strategy Type', 'Ad Group', 'Keyword', 'Match Type', 'Headline 1', 'Headline 2', 'Headline 3', 'Description 1', 'Description 2', 'Final URL']),
+        ];
+
+        foreach ($adsCamp['ad_groups'] ?? [] as $group) {
+            $groupName = $group['ad_group_name'] ?? 'Default';
+
+            foreach ($group['keywords'] ?? [] as $kw) {
+                $keyword = is_array($kw) ? ($kw['keyword'] ?? '') : (string) $kw;
+                $matchType = is_array($kw) ? ($kw['match_type'] ?? 'Broad') : 'Broad';
+                if ($keyword !== '') {
+                    $lines[] = $this->csvRow([(string) $campName, (string) $budget, (string) $bidding, $groupName, $keyword, ucfirst($matchType), '', '', '', '', '', '']);
+                }
+            }
+
+            foreach ($group['ads'] ?? [] as $ad) {
+                $headlines = $ad['headlines'] ?? [];
+                $descriptions = $ad['descriptions'] ?? [];
+                $finalUrl = $ad['final_url'] ?? $ad['finalUrl'] ?? '';
+                $lines[] = $this->csvRow([
+                    (string) $campName, (string) $budget, (string) $bidding, $groupName, '', '',
+                    $headlines[0] ?? '', $headlines[1] ?? '', $headlines[2] ?? '',
+                    $descriptions[0] ?? '', $descriptions[1] ?? '',
+                    (string) $finalUrl,
+                ]);
+            }
+        }
+
+        if (count($lines) > 1) {
+            $zip->addFromString(
+                "{$slug}/google-ads/{$adsName}_{$adsLang}_google-ads-editor.csv",
+                implode("\n", $lines) . "\n",
+            );
+        }
     }
 
     #[Route('/campaigns/{campaignId}/file/{filePath}', name: 'campaign_file_serve', requirements: ['filePath' => '.+'], methods: ['GET'])]
