@@ -28,6 +28,19 @@ const IMG_TYPES = [
   { id: 'banner_rect', label: 'Rectangle', dim: '300×250' },
 ]
 
+const IMG_STYLES = [
+  { id: 'tech-forward', label: 'Tech-Forward', desc: 'Gradients, geometric shapes, modern & sleek' },
+  { id: 'photorealistic', label: 'Photorealistic', desc: 'Natural lighting, real textures, depth of field' },
+  { id: 'illustration', label: 'Illustration', desc: 'Hand-drawn, warm, artistic brush strokes' },
+  { id: 'flat-design', label: 'Flat Design', desc: 'Bold solid colors, simple shapes, no shadows' },
+  { id: '3d-render', label: '3D Render', desc: 'Polished 3D scene, realistic materials, cinematic' },
+  { id: 'watercolor', label: 'Watercolor', desc: 'Soft washes of color, organic flowing edges' },
+  { id: 'minimalist', label: 'Minimalist', desc: 'Maximum whitespace, one focal element, elegant' },
+  { id: 'retro', label: 'Retro / Vintage', desc: 'Muted tones, halftone, nostalgic 70s/80s vibe' },
+  { id: 'corporate', label: 'Corporate', desc: 'Clean, polished, professional business look' },
+  { id: 'bold-graphic', label: 'Bold Graphic', desc: 'High contrast, punchy colors, poster style' },
+]
+
 // ─── API Client ──────────────────────────────────────────────────────────────
 
 function createApi(baseUrl, userId) {
@@ -734,6 +747,24 @@ export default {
       const langs = campaign.languages || ['en']
       const imageFiles = files.filter(f => f.path.includes('/images/'))
       const videoFiles = files.filter(f => f.path.includes('/videos/'))
+      const collaterals = data.collaterals || {}
+      const curStyle = IMG_STYLES.find(s => s.id === (campaign.image_style || 'tech-forward'))
+
+      const styleBar = h('div', { className: 'mk-card', style: { padding: '14px 20px' } })
+      styleBar.append(h('div', { className: 'mk-row', style: { justifyContent: 'space-between' } },
+        h('div', null,
+          h('div', { style: { fontSize: '11px', fontWeight: '600', color: 'var(--txt-secondary,#999)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '2px' } }, 'Image Style'),
+          h('div', { style: { fontSize: '14px', fontWeight: '600' } }, curStyle?.label || 'Tech-Forward'),
+          h('div', { style: { fontSize: '12px', color: 'var(--txt-secondary)', fontStyle: 'italic' } }, curStyle?.desc || ''),
+        ),
+        h('button', { className: 'mk-btn mk-ghost', style: { fontSize: '12px' }, onClick: () => { state.tab = 'settings'; render() } }, '⚙ Change style'),
+      ))
+      if (campaign.image_style_notes) {
+        styleBar.append(h('div', { style: { fontSize: '12px', color: 'var(--txt-secondary)', marginTop: '6px', borderTop: '1px solid var(--border-light,#333)', paddingTop: '6px' } }, '📝 ' + campaign.image_style_notes))
+      }
+      ct.append(styleBar)
+
+      const promptOverrides = {}
 
       langs.forEach(lang => {
         const langCard = h('div', { className: 'mk-card' })
@@ -751,6 +782,8 @@ export default {
 
         IMG_TYPES.forEach(img => {
           const existing = langImages.find(f => f.path.includes(`/${lang}/images/${img.id}.`))
+          const collKey = Object.keys(collaterals).find(k => collaterals[k]?.type === img.id && collaterals[k]?.language === lang)
+          const lastPrompt = collKey ? collaterals[collKey]?.prompt : null
           const tile = h('div', { style: { border: '1px solid var(--border-light,#333)', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-input,#151520)' } })
 
           if (existing) {
@@ -763,28 +796,51 @@ export default {
             thumb.addEventListener('click', () => window.open(url, '_blank'))
             tile.append(thumb)
 
-            tile.append(h('div', { style: { padding: '8px 10px' } },
-              h('div', { style: { fontWeight: '600', fontSize: '12px' } }, img.label),
-              h('div', { style: { fontSize: '10px', color: 'var(--txt-secondary)', marginBottom: '6px' } }, img.dim),
-              h('div', { className: 'mk-row', style: { gap: '4px' } },
-                h('button', { className: 'mk-btn mk-secondary', style: { padding: '3px 8px', fontSize: '10px' }, onClick: () => { navigator.clipboard.writeText(url); toast('Copied!') } }, '📋'),
-                h('a', { href: url, download: `${img.id}.png`, className: 'mk-btn mk-secondary', style: { padding: '3px 8px', fontSize: '10px', textDecoration: 'none' } }, '⬇'),
-                asyncBtn('🔄', 'mk-secondary', async () => {
-                  const d = await api.post(`/campaigns/${campaign.id}/generate-image`, { type: img.id, language: lang })
-                  if (d.success) { toast(`${img.label} regenerated!`); render() } else toast(d.error || 'Failed', true)
-                }, { style: { padding: '3px 8px', fontSize: '10px' } }),
-              ),
+            const info = h('div', { style: { padding: '8px 10px' } })
+            info.append(h('div', { style: { fontWeight: '600', fontSize: '12px' } }, img.label))
+            info.append(h('div', { style: { fontSize: '10px', color: 'var(--txt-secondary)', marginBottom: '4px' } }, img.dim))
+
+            const promptToggle = h('button', { className: 'mk-btn mk-ghost', style: { padding: '2px 6px', fontSize: '10px', marginBottom: '4px' }, onClick: () => {
+              promptArea.style.display = promptArea.style.display === 'none' ? 'block' : 'none'
+            } }, '✏️ Edit prompt')
+            info.append(promptToggle)
+
+            const pKey = `${lang}_${img.id}`
+            const promptArea = h('div', { style: { display: 'none', marginBottom: '6px' } })
+            const pInput = h('textarea', { className: 'mk-input', rows: 3, value: promptOverrides[pKey] || lastPrompt || '', placeholder: 'Custom prompt (leave empty for auto)...', style: { fontSize: '11px', padding: '6px 8px', resize: 'vertical' }, onInput: (e) => { promptOverrides[pKey] = e.target.value } })
+            promptArea.append(pInput)
+            info.append(promptArea)
+
+            info.append(h('div', { className: 'mk-row', style: { gap: '4px' } },
+              h('button', { className: 'mk-btn mk-secondary', style: { padding: '3px 8px', fontSize: '10px' }, onClick: () => { navigator.clipboard.writeText(url); toast('Copied!') } }, '📋'),
+              h('a', { href: url, download: `${img.id}.png`, className: 'mk-btn mk-secondary', style: { padding: '3px 8px', fontSize: '10px', textDecoration: 'none' } }, '⬇'),
+              asyncBtn('🔄', 'mk-secondary', async () => {
+                const body = { type: img.id, language: lang }
+                const customPrompt = promptOverrides[pKey]?.trim()
+                if (customPrompt) body.prompt = customPrompt
+                const d = await api.post(`/campaigns/${campaign.id}/generate-image`, body)
+                if (d.success) { toast(`${img.label} regenerated!`); render() } else toast(d.error || 'Failed', true)
+              }, { style: { padding: '3px 8px', fontSize: '10px' } }),
             ))
+            tile.append(info)
           } else {
-            tile.append(h('div', { style: { padding: '16px 10px', textAlign: 'center' } },
-              h('div', { style: { fontSize: '22px', marginBottom: '4px', opacity: 0.3 } }, '🖼'),
-              h('div', { style: { fontWeight: '600', fontSize: '12px' } }, img.label),
-              h('div', { style: { fontSize: '10px', color: 'var(--txt-secondary)', marginBottom: '8px' } }, img.dim),
-              asyncBtn('✨ Generate', 'mk-primary', async () => {
-                const d = await api.post(`/campaigns/${campaign.id}/generate-image`, { type: img.id, language: lang })
-                if (d.success) { toast(`${img.label} generated!`); render() } else toast(d.error || 'Failed', true)
-              }, { style: { width: '100%', justifyContent: 'center', padding: '5px 10px', fontSize: '11px' } }),
-            ))
+            const pKey = `${lang}_${img.id}`
+            const empty = h('div', { style: { padding: '14px 10px', textAlign: 'center' } })
+            empty.append(h('div', { style: { fontSize: '22px', marginBottom: '4px', opacity: 0.3 } }, '🖼'))
+            empty.append(h('div', { style: { fontWeight: '600', fontSize: '12px' } }, img.label))
+            empty.append(h('div', { style: { fontSize: '10px', color: 'var(--txt-secondary)', marginBottom: '6px' } }, img.dim))
+
+            const pInput = h('textarea', { className: 'mk-input', rows: 2, value: promptOverrides[pKey] || '', placeholder: 'Custom prompt (optional)...', style: { fontSize: '11px', padding: '6px 8px', resize: 'vertical', marginBottom: '6px', textAlign: 'left' }, onInput: (e) => { promptOverrides[pKey] = e.target.value } })
+            empty.append(pInput)
+
+            empty.append(asyncBtn('✨ Generate', 'mk-primary', async () => {
+              const body = { type: img.id, language: lang }
+              const customPrompt = promptOverrides[pKey]?.trim()
+              if (customPrompt) body.prompt = customPrompt
+              const d = await api.post(`/campaigns/${campaign.id}/generate-image`, body)
+              if (d.success) { toast(`${img.label} generated!`); render() } else toast(d.error || 'Failed', true)
+            }, { style: { width: '100%', justifyContent: 'center', padding: '5px 10px', fontSize: '11px' } }))
+            tile.append(empty)
           }
           grid.append(tile)
         })
@@ -796,7 +852,11 @@ export default {
             let ok = 0
             for (let i = 0; i < IMG_TYPES.length; i++) {
               btn.innerHTML = `<span class="mk-spinner"></span> ${i + 1}/${IMG_TYPES.length}: ${IMG_TYPES[i].label}...`
-              const d = await api.post(`/campaigns/${campaign.id}/generate-image`, { type: IMG_TYPES[i].id, language: lang })
+              const body = { type: IMG_TYPES[i].id, language: lang }
+              const pKey = `${lang}_${IMG_TYPES[i].id}`
+              const customPrompt = promptOverrides[pKey]?.trim()
+              if (customPrompt) body.prompt = customPrompt
+              const d = await api.post(`/campaigns/${campaign.id}/generate-image`, body)
               if (d.success) ok++; else toast(`${IMG_TYPES[i].label}: ${d.error || 'Failed'}`, true)
             }
             if (ok > 0) { toast(`${langLabel(lang)}: ${ok}/${IMG_TYPES.length} images generated!`); render() }
@@ -822,10 +882,18 @@ export default {
           const rel = `${lang}/videos/promo.mp4`
           const url = fileUrl(campaign.id, rel)
           vCard.append(h('video', { src: url, controls: true, style: { width: '100%', maxHeight: '260px', borderRadius: '8px', background: '#000', marginBottom: '10px' } }))
-          vCard.append(h('div', { className: 'mk-row', style: { gap: '8px', marginBottom: '10px' } },
+          const actionRow = h('div', { className: 'mk-row', style: { gap: '8px', marginBottom: '10px', flexWrap: 'wrap' } },
             h('a', { href: url, download: `promo_${lang}.mp4`, className: 'mk-btn mk-secondary', style: { padding: '5px 12px', fontSize: '12px', textDecoration: 'none' } }, '⬇ Download'),
             h('button', { className: 'mk-btn mk-secondary', style: { padding: '5px 12px', fontSize: '12px' }, onClick: () => { navigator.clipboard.writeText(url); toast('URL copied!') } }, '📋 Copy URL'),
-          ))
+          )
+          if (langs.length > 1) {
+            const otherLangs = langs.filter(l => l !== lang)
+            actionRow.append(asyncBtn(`📤 Use for all languages`, 'mk-secondary', async () => {
+              const d = await api.post(`/campaigns/${campaign.id}/share-video`, { source_language: lang })
+              if (d.success) { toast(`Video copied to ${otherLangs.map(langLabel).join(', ')}!`); render() } else toast(d.error || 'Failed', true)
+            }, { style: { padding: '5px 12px', fontSize: '12px' } }))
+          }
+          vCard.append(actionRow)
           const regenDesc = h('textarea', { className: 'mk-input', rows: 2, placeholder: 'New description (leave empty for auto)...', style: { width: '100%', resize: 'vertical', marginBottom: '8px' } })
           const regenDur = h('select', { className: 'mk-input', style: { width: 'auto', marginBottom: '8px', marginRight: '8px' } })
           ;[4, 6, 8].forEach(d => regenDur.append(h('option', { value: d, selected: d === 6 }, `${d}s`)))
@@ -987,6 +1055,33 @@ export default {
       sec2.append(h('div', { style: { fontSize: '11px', color: 'var(--txt-secondary)', marginTop: '-12px', marginBottom: '16px' } }, 'Used for landing pages and AI image generation.'))
       ct.append(sec2)
 
+      // --- Image Style ---
+      const secStyle = h('div', { className: 'mk-card' })
+      secStyle.append(h('h3', null, 'Image Style'))
+      secStyle.append(h('div', { style: { fontSize: '12px', color: 'var(--txt-secondary)', marginBottom: '12px' } }, 'Controls the visual direction of all AI-generated images. Pick a preset and optionally add custom notes.'))
+
+      const styleChips = h('div', { className: 'mk-chips', style: { marginBottom: '14px' } })
+      IMG_STYLES.forEach(s => {
+        const isOn = (f.image_style || 'tech-forward') === s.id
+        const chip = h('div', { className: `mk-chip${isOn ? ' on' : ''}`, title: s.desc })
+        chip.append(s.label)
+        chip.addEventListener('click', () => {
+          f.image_style = s.id
+          styleChips.querySelectorAll('.mk-chip').forEach(c => c.className = 'mk-chip')
+          chip.className = 'mk-chip on'
+          stylePreview.textContent = s.desc
+        })
+        styleChips.append(chip)
+      })
+      secStyle.append(styleChips)
+
+      const activeStyle = IMG_STYLES.find(s => s.id === (f.image_style || 'tech-forward'))
+      const stylePreview = h('div', { style: { fontSize: '12px', color: 'var(--brand,#00b79d)', marginBottom: '12px', fontStyle: 'italic' } }, activeStyle?.desc || '')
+      secStyle.append(stylePreview)
+
+      secStyle.append(field('Custom Style Notes (optional)', 'textarea', f.image_style_notes || '', v => f.image_style_notes = v, 'e.g. "Include subtle circuit board patterns" or "Use warm earth tones instead of cool blues" or "Show people using laptops in a cozy office"'))
+      ct.append(secStyle)
+
       // --- Call to Action ---
       const sec3 = h('div', { className: 'mk-card' })
       sec3.append(h('h3', null, 'Call to Action'))
@@ -1051,6 +1146,7 @@ export default {
           status: f.status, languages: f.languages, platforms: f.platforms,
           ctas, accent_color: f.accent_color, modal_content: f.modal_content || '',
           brand_logo_url: f.brand_logo_url || '', color_scheme: f.color_scheme || '',
+          image_style: f.image_style || 'tech-forward', image_style_notes: f.image_style_notes || '',
           tracking: f.tracking || {},
         })
         if (d.success) { toast('Saved!'); render() } else toast(d.error || 'Failed', true)

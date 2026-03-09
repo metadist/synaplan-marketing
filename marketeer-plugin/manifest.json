@@ -31,6 +31,7 @@
     {"path": "/campaigns/{campaignId}/generate-keywords", "method": "POST", "description": "Generate keyword list"},
     {"path": "/campaigns/{campaignId}/generate-image", "method": "POST", "description": "Generate marketing image"},
     {"path": "/campaigns/{campaignId}/generate-video", "method": "POST", "description": "Generate promotional video clip"},
+    {"path": "/campaigns/{campaignId}/share-video", "method": "POST", "description": "Copy video to all campaign languages"},
     {"path": "/campaigns/{campaignId}/ads-campaigns", "method": "GET", "description": "List Google Ads campaign plans"},
     {"path": "/campaigns/{campaignId}/ads-campaigns", "method": "POST", "description": "Create ads campaign plan"},
     {"path": "/campaigns/{campaignId}/ads-campaigns/generate", "method": "POST", "description": "AI-generate ads campaign structure"},

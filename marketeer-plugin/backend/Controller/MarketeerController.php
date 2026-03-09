@@ -508,7 +508,7 @@ class MarketeerController extends AbstractController
             'title', 'topic', 'languages', 'cta_url', 'status',
             'target_audience', 'unique_selling_points', 'platforms',
             'ctas', 'tracking', 'sort_order', 'accent_color', 'modal_content',
-            'brand_logo_url', 'color_scheme',
+            'brand_logo_url', 'color_scheme', 'image_style', 'image_style_notes',
         ];
 
         foreach ($allowedFields as $field) {
@@ -1252,6 +1252,74 @@ class MarketeerController extends AbstractController
             return $this->json([
                 'success' => false,
                 'error' => 'Video generation failed: ' . $e->getMessage(),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/campaigns/{campaignId}/share-video', name: 'share_video', methods: ['POST'])]
+    #[OA\Post(
+        path: '/api/v1/user/{userId}/plugins/marketeer/campaigns/{campaignId}/share-video',
+        summary: 'Copy a video from one language to all other campaign languages',
+        security: [['ApiKey' => []]],
+        tags: ['Marketeer Plugin']
+    )]
+    #[OA\RequestBody(
+        content: new OA\JsonContent(
+            required: ['source_language'],
+            properties: [
+                new OA\Property(property: 'source_language', type: 'string', example: 'en'),
+            ]
+        )
+    )]
+    #[OA\Response(response: 200, description: 'Video shared to all languages')]
+    public function shareVideo(
+        Request $request,
+        int $userId,
+        string $campaignId,
+        #[CurrentUser] ?User $user,
+    ): JsonResponse {
+        if (!$this->canAccessPlugin($user, $userId)) {
+            return $this->json(['success' => false, 'error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $campaign = $this->pluginData->get($userId, self::PLUGIN_NAME, self::DATA_TYPE_CAMPAIGN, $campaignId);
+        if ($campaign === null) {
+            return $this->json(['success' => false, 'error' => 'Campaign not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+        $sourceLang = $data['source_language'] ?? null;
+        $targetLangs = $campaign['languages'] ?? ['en'];
+
+        if ($sourceLang === null || !in_array($sourceLang, $targetLangs, true)) {
+            return $this->json(['success' => false, 'error' => 'Invalid source language'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $copied = $this->landingPageService->copyVideoToLanguages($userId, $campaignId, $sourceLang, $targetLangs);
+
+            $sourceCollateral = $this->adCopyService->getCollateral($userId, $campaignId, 'video_promo', $sourceLang);
+            if ($sourceCollateral !== null) {
+                foreach ($targetLangs as $lang) {
+                    if ($lang === $sourceLang) {
+                        continue;
+                    }
+                    $copy = $sourceCollateral;
+                    $copy['language'] = $lang;
+                    $copy['shared_from'] = $sourceLang;
+                    $this->adCopyService->saveCollateral($userId, $campaignId, 'video_promo', $lang, $copy);
+                }
+            }
+
+            return $this->json([
+                'success' => true,
+                'copied' => $copied,
+                'source' => $sourceLang,
+            ]);
+        } catch (\Throwable $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Failed to share video: ' . $e->getMessage(),
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }

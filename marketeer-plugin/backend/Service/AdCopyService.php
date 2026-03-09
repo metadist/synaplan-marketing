@@ -177,6 +177,16 @@ final readonly class AdCopyService
     }
 
     /**
+     * @return array<string, mixed>|null
+     */
+    public function getCollateral(int $userId, string $campaignSlug, string $collateralType, string $language): ?array
+    {
+        $key = "{$campaignSlug}_{$collateralType}_{$language}";
+
+        return $this->pluginData->get($userId, self::PLUGIN_NAME, self::TYPE_COLLATERAL, $key);
+    }
+
+    /**
      * @return array<string, array<string, mixed>>
      */
     public function listCollaterals(int $userId, string $campaignSlug): array

@@ -237,10 +237,6 @@ final readonly class LandingPageService
             if ($file->isFile()) {
                 $relativePath = substr($file->getPathname(), $prefixLen);
                 $zip->addFile($file->getPathname(), $campaignSlug . '/' . $relativePath);
-
-                if (preg_match('#^([a-z]{2})/keywords\.txt$#', $relativePath, $m)) {
-                    $zip->addFile($file->getPathname(), $campaignSlug . '/keywords_' . $m[1] . '.txt');
-                }
             }
         }
 
@@ -252,6 +248,37 @@ final readonly class LandingPageService
     public function getCampaignDir(int $userId, string $campaignSlug): string
     {
         return $this->getUserUploadDir($userId) . '/marketeer/' . $campaignSlug;
+    }
+
+    /**
+     * @param string[] $targetLanguages
+     * @return int Number of copies made
+     */
+    public function copyVideoToLanguages(
+        int $userId,
+        string $campaignSlug,
+        string $sourceLanguage,
+        array $targetLanguages,
+    ): int {
+        $sourceFile = $this->getCampaignLangDir($userId, $campaignSlug, $sourceLanguage) . '/videos/promo.mp4';
+        if (!is_file($sourceFile)) {
+            throw new \RuntimeException("Source video not found: {$sourceLanguage}/videos/promo.mp4");
+        }
+
+        $copied = 0;
+        foreach ($targetLanguages as $lang) {
+            if ($lang === $sourceLanguage) {
+                continue;
+            }
+            $targetDir = $this->getCampaignLangDir($userId, $campaignSlug, $lang) . '/videos';
+            if (!is_dir($targetDir)) {
+                mkdir($targetDir, 0755, true);
+            }
+            copy($sourceFile, $targetDir . '/promo.mp4');
+            ++$copied;
+        }
+
+        return $copied;
     }
 
     private function getCampaignLangDir(int $userId, string $campaignSlug, string $language): string

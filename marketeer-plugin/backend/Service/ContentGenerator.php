@@ -560,6 +560,8 @@ PROMPT;
         $title = $campaign['title'] ?? 'AI Knowledge Management';
         $accent = $campaign['accent_color'] ?? $config['default_accent_color'] ?? '#00b79d';
         $colorScheme = $campaign['color_scheme'] ?? $config['default_color_scheme'] ?? 'dark backgrounds with vibrant accent';
+        $imageStyle = $campaign['image_style'] ?? 'tech-forward';
+        $styleNotes = $campaign['image_style_notes'] ?? '';
 
         $dimensions = match ($imageType) {
             'linkedin' => '1200x627 pixels (LinkedIn recommended)',
@@ -572,17 +574,39 @@ PROMPT;
             default => '1920x1080 pixels (hero banner)',
         };
 
-        $style = match ($imageType) {
-            'icon' => 'Simple, recognizable icon design with bold shapes. Single focal element on clean background.',
-            'banner_wide', 'banner_rect', 'banner_sky' => 'Clean advertising banner. Abstract tech pattern, professional. No text — text will be overlaid.',
-            default => 'Clean, tech-forward design with gradients and abstract shapes.',
+        $styleDirections = [
+            'tech-forward' => 'Clean, tech-forward design with gradients and abstract geometric shapes. Modern and sleek.',
+            'photorealistic' => 'High-quality photorealistic imagery. Natural lighting, real-world textures and depth of field.',
+            'illustration' => 'Hand-drawn illustration style. Warm, approachable, and artistically crafted with visible brush strokes or pen lines.',
+            'flat-design' => 'Flat design with bold solid colors, simple shapes, and no shadows or gradients. Minimal and graphic.',
+            '3d-render' => 'Polished 3D rendered scene with realistic materials, soft lighting, and depth. Cinematic quality.',
+            'watercolor' => 'Soft watercolor painting aesthetic. Gentle washes of color with organic, flowing edges.',
+            'minimalist' => 'Ultra-minimalist. Maximum whitespace, one or two focal elements only. Restrained and elegant.',
+            'retro' => 'Vintage retro aesthetic. Muted tones, halftone textures, and nostalgic 70s/80s graphic style.',
+            'corporate' => 'Corporate and polished. Clean lines, stock-photo aesthetic, professional business imagery.',
+            'bold-graphic' => 'Bold graphic poster style. High contrast, strong typography-friendly composition, punchy colors.',
+        ];
+
+        $style = $styleDirections[$imageStyle] ?? $styleDirections['tech-forward'];
+
+        $typeHint = match ($imageType) {
+            'icon' => ' Simple, recognizable icon with bold shapes. Single focal element on clean background.',
+            'banner_wide', 'banner_rect', 'banner_sky' => ' Advertising banner composition — professional, compact, no text.',
+            default => '',
         };
 
-        return "Create a professional marketing image for {$brandName}. "
+        $prompt = "Create a professional marketing image for {$brandName}. "
             . "Theme: {$title}. "
-            . "Style: {$style} Color palette: {$colorScheme}, using {$accent} as the main accent color. "
+            . "Visual style: {$style}{$typeHint} "
+            . "Color palette: {$colorScheme}, using {$accent} as the main accent. "
             . "Dimensions: {$dimensions}. "
             . "Do NOT include any text in the image — text will be overlaid separately.";
+
+        if (trim($styleNotes) !== '') {
+            $prompt .= " Additional direction: {$styleNotes}";
+        }
+
+        return $prompt;
     }
 
     // --- Video Prompts ---
