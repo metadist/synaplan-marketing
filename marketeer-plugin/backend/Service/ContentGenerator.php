@@ -820,6 +820,8 @@ PROMPT;
             }
         }
 
+        $response = mb_convert_encoding($response, 'UTF-8', 'UTF-8');
+
         return $response;
     }
 

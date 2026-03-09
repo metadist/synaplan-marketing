@@ -34,9 +34,20 @@ function createApi(baseUrl, userId) {
   const url = (path) => `${baseUrl}/api/v1/user/${userId}/plugins/marketeer${path}`
 
   async function call(method, path, body) {
-    const opts = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include' }
+    const opts = {
+      method,
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      credentials: 'include',
+    }
     if (body) opts.body = JSON.stringify(body)
     const res = await fetch(url(path), opts)
+    const contentType = res.headers.get('content-type') || ''
+    if (!contentType.includes('application/json')) {
+      return { success: false, error: `Server returned ${res.status}: non-JSON response` }
+    }
+    if (!res.ok) {
+      try { return await res.json() } catch { return { success: false, error: `Server error ${res.status}` } }
+    }
     return res.json()
   }
 

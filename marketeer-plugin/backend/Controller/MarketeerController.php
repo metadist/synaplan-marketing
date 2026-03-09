@@ -457,7 +457,7 @@ class MarketeerController extends AbstractController
         $adsCampaigns = $this->adsPlannerService->listForCampaign($userId, $campaignId);
         $files = $this->landingPageService->listCampaignFiles($userId, $campaignId);
 
-        return $this->json([
+        $data = [
             'success' => true,
             'campaign' => array_merge(['id' => $campaignId], $campaign),
             'pages' => $pages,
@@ -466,7 +466,17 @@ class MarketeerController extends AbstractController
             'collaterals' => $collaterals,
             'ads_campaigns' => $adsCampaigns,
             'files' => $files,
-        ]);
+        ];
+
+        $json = json_encode($data, \JSON_HEX_TAG | \JSON_HEX_APOS | \JSON_HEX_AMP | \JSON_HEX_QUOT | \JSON_INVALID_UTF8_SUBSTITUTE);
+        if ($json === false) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Failed to encode campaign data: ' . json_last_error_msg(),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        return JsonResponse::fromJsonString($json);
     }
 
     #[Route('/campaigns/{campaignId}', name: 'campaigns_update', methods: ['PUT'])]
