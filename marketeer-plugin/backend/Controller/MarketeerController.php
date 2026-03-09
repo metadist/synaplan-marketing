@@ -18,6 +18,7 @@ use Plugin\Marketeer\Service\LandingPageService;
 use Plugin\Marketeer\Service\MarketeerInstallService;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -46,7 +47,7 @@ class MarketeerController extends AbstractController
         private ComplianceService $complianceService,
         private ConfigRepository $configRepository,
         private LoggerInterface $logger,
-        private string $uploadDir,
+        #[Autowire('%app.upload_dir%')] private string $uploadDir,
     ) {
     }
 
