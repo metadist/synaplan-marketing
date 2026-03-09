@@ -15,11 +15,13 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  *   marketeer/{campaign-slug}/{language}/
  *     ├── index.html
  *     ├── keywords.txt
- *     └── images/
- *         ├── hero.png
- *         ├── linkedin.png
- *         ├── instagram.png
- *         └── og.png
+ *     ├── images/
+ *     │   ├── hero.png
+ *     │   ├── linkedin.png
+ *     │   ├── instagram.png
+ *     │   └── og.png
+ *     └── videos/
+ *         └── promo.mp4
  */
 final readonly class LandingPageService
 {
@@ -75,6 +77,49 @@ final readonly class LandingPageService
         file_put_contents($filePath, implode("\n", $keywords) . "\n");
 
         return "marketeer/{$campaignSlug}/{$language}/keywords.txt";
+    }
+
+    /**
+     * @param array{url?: string, base64?: string, data?: string} $imageData
+     */
+    /**
+     * @param array{url?: string, base64?: string, data?: string} $videoData
+     */
+    public function saveVideoFile(
+        int $userId,
+        string $campaignSlug,
+        string $language,
+        string $videoType,
+        array $videoData,
+    ): string {
+        $dir = $this->getCampaignLangDir($userId, $campaignSlug, $language) . '/videos';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $filename = "{$videoType}.mp4";
+        $filePath = $dir . '/' . $filename;
+
+        if (!empty($videoData['base64'])) {
+            $raw = $videoData['base64'];
+            if (str_contains($raw, ',')) {
+                $raw = substr($raw, strpos($raw, ',') + 1);
+            }
+            file_put_contents($filePath, base64_decode($raw));
+        } elseif (!empty($videoData['data'])) {
+            $raw = $videoData['data'];
+            if (str_contains($raw, ',')) {
+                $raw = substr($raw, strpos($raw, ',') + 1);
+            }
+            file_put_contents($filePath, base64_decode($raw));
+        } elseif (!empty($videoData['url'])) {
+            $content = @file_get_contents($videoData['url']);
+            if ($content !== false) {
+                file_put_contents($filePath, $content);
+            }
+        }
+
+        return "marketeer/{$campaignSlug}/{$language}/videos/{$filename}";
     }
 
     /**

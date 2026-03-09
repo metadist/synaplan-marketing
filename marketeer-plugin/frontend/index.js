@@ -15,7 +15,7 @@ const PLATFORMS = [
   { id: 'google', label: 'Google Ads', icon: '📊' },
   { id: 'linkedin', label: 'LinkedIn', icon: '💼' },
   { id: 'instagram', label: 'Instagram', icon: '📸' },
-  { id: 'discord', label: 'Discord', icon: '💬' },
+  { id: 'facebook', label: 'Facebook / Meta', icon: '📘' },
 ]
 
 const IMG_TYPES = [
@@ -63,7 +63,7 @@ function createApi(baseUrl, userId) {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const CSS = `
-  .mk{font-family:system-ui,-apple-system,sans-serif;color:var(--txt-primary,#e0e0e0);max-width:960px;margin:0 auto}
+  .mk{font-family:system-ui,-apple-system,sans-serif;color:var(--txt-primary,#e0e0e0);max-width:960px;margin:0 auto;color-scheme:dark}
   .mk *{box-sizing:border-box}
   .mk h2{font-size:22px;font-weight:600;margin:0 0 4px}
   .mk h3{font-size:17px;font-weight:600;margin:0 0 8px}
@@ -73,13 +73,13 @@ const CSS = `
   .mk-grow{flex:1;min-width:0}
   .mk-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;text-transform:uppercase}
   .mk-badge-draft{background:#555;color:#ccc}.mk-badge-active{background:#00b79d;color:#fff}.mk-badge-paused{background:#e6a700;color:#000}.mk-badge-completed{background:#3b82f6;color:#fff}
-  .mk-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s}
+  .mk-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;color:var(--txt-primary,#e0e0e0)}
   .mk-btn:hover{opacity:.85}.mk-btn:disabled{opacity:.4;cursor:not-allowed}
   .mk-primary{background:var(--brand,#00b79d);color:#fff}
   .mk-secondary{background:var(--bg-chip,#333);color:var(--txt-primary,#e0e0e0)}
   .mk-danger{background:#c0392b;color:#fff}
   .mk-ghost{background:transparent;color:var(--brand,#00b79d);padding:8px 12px}
-  .mk-input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border-light,#444);background:var(--bg-input,#151520);color:var(--txt-primary,#e0e0e0);font-size:14px;outline:none}
+  .mk-input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border-light,#444);background:var(--bg-input,#151520);color:var(--txt-primary,#e0e0e0);font-size:14px;outline:none;color-scheme:dark}
   .mk-input:focus{border-color:var(--brand,#00b79d)}
   .mk-textarea{min-height:80px;resize:vertical;font-family:inherit}
   .mk-label{display:block;font-size:12px;font-weight:600;color:var(--txt-secondary,#999);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
@@ -92,7 +92,7 @@ const CSS = `
   .mk-empty{text-align:center;padding:40px 20px;color:var(--txt-secondary,#999)}
   .mk-empty p{margin:8px 0}
   .mk-chips{display:flex;flex-wrap:wrap;gap:6px}
-  .mk-chip{padding:4px 12px;border-radius:16px;font-size:12px;border:1px solid var(--border-light,#444);cursor:pointer;transition:all .15s;user-select:none}
+  .mk-chip{padding:4px 12px;border-radius:16px;font-size:12px;border:1px solid var(--border-light,#444);cursor:pointer;transition:all .15s;user-select:none;color:var(--txt-primary,#e0e0e0)}
   .mk-chip.on{background:var(--brand,#00b79d);color:#fff;border-color:var(--brand,#00b79d)}
   .mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
   .mk-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;background:var(--bg-chip,#333);margin:0 4px 4px 0}
@@ -106,6 +106,12 @@ const CSS = `
   .mk-toast{position:fixed;bottom:24px;right:24px;background:#00b79d;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;z-index:9999;animation:mk-fade .3s}
   .mk-toast.error{background:#c0392b}
   @keyframes mk-fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  .mk-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;animation:mk-fade .2s;color:var(--txt-primary,#e0e0e0);font-family:system-ui,-apple-system,sans-serif}
+  .mk-modal{background:var(--bg-card,#1e1e2e);border:1px solid var(--border-light,#333);border-radius:16px;padding:28px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.5);color:var(--txt-primary,#e0e0e0)}
+  .mk-modal h3{font-size:18px;font-weight:700;margin:0 0 4px;color:var(--txt-primary,#e0e0e0)}
+  .mk-modal-sub{color:var(--txt-secondary,#999);font-size:13px;margin:0 0 20px;line-height:1.5}
+  .mk-modal-issue{display:flex;align-items:flex-start;gap:8px;padding:8px 12px;background:rgba(192,57,43,0.12);border:1px solid rgba(192,57,43,0.25);border-radius:8px;margin-bottom:8px;font-size:13px;color:#e74c3c}
+  .mk-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border-light,#333)}
 `
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -133,6 +139,14 @@ function langLabel(code) {
   return LANGS.find(l => l.code === code)?.flag + ' ' + (LANGS.find(l => l.code === code)?.label || code)
 }
 
+function isValidUrl(str) {
+  if (!str || typeof str !== 'string') return false
+  try {
+    const u = new URL(str.trim())
+    return u.protocol === 'https:' || u.protocol === 'http:'
+  } catch { return false }
+}
+
 // ─── App ─────────────────────────────────────────────────────────────────────
 
 export default {
@@ -147,9 +161,96 @@ export default {
     const root = h('div', { className: 'mk' })
     el.append(root)
 
+    let cachedConfig = null
+
     function nav(page, opts = {}) {
       Object.assign(state, { page, ...opts })
       render()
+    }
+
+    async function navToNewCampaign() {
+      const d = await api.get('/config')
+      if (!d.success) { toast('Could not load settings', true); return }
+      cachedConfig = d.config
+      const issues = []
+      if (!isValidUrl(d.config.cta_url)) issues.push({ key: 'cta_url', label: 'Default CTA URL', hint: 'https://your-site.com/register' })
+      if (!isValidUrl(d.config.privacy_policy_url)) issues.push({ key: 'privacy_policy_url', label: 'Privacy Policy URL', hint: 'https://your-site.com/privacy' })
+      if (!isValidUrl(d.config.imprint_url)) issues.push({ key: 'imprint_url', label: 'Imprint / Legal Notice URL', hint: 'https://your-site.com/imprint' })
+      if (issues.length === 0) { nav('new'); return }
+      showSettingsModal(d.config, issues)
+    }
+
+    function showSettingsModal(cfg, issues) {
+      const existing = document.querySelector('.mk-overlay')
+      if (existing) existing.remove()
+
+      const overlay = h('div', { className: 'mk-overlay' })
+      const modal = h('div', { className: 'mk-modal' })
+
+      modal.append(
+        h('h3', null, 'Complete your settings first'),
+        h('p', { className: 'mk-modal-sub' },
+          'Before creating a campaign, the following settings need valid URLs. These are required for compliance and will appear on every landing page.'),
+      )
+
+      const issueList = h('div', { style: { marginBottom: '16px' } })
+      issues.forEach(iss => {
+        issueList.append(h('div', { className: 'mk-modal-issue' }, '❌ ', h('span', null, `${iss.label} is missing or invalid`)))
+      })
+      modal.append(issueList)
+
+      const fields = {}
+      issues.forEach(iss => {
+        const wrap = h('div', { className: 'mk-field' })
+        wrap.append(h('label', { className: 'mk-label' }, iss.label))
+        const input = h('input', {
+          className: 'mk-input',
+          value: cfg[iss.key] || '',
+          placeholder: iss.hint,
+        })
+        fields[iss.key] = input
+        wrap.append(input)
+        modal.append(wrap)
+      })
+
+      const actions = h('div', { className: 'mk-modal-actions' })
+      actions.append(h('button', { className: 'mk-btn mk-secondary', onClick: () => overlay.remove() }, 'Cancel'))
+      actions.append(h('button', { className: 'mk-btn mk-ghost', onClick: () => { overlay.remove(); nav('config') } }, 'Open full settings'))
+
+      const saveBtn = h('button', { className: 'mk-btn mk-primary' }, 'Save & Continue')
+      saveBtn.addEventListener('click', async () => {
+        const updates = {}
+        let valid = true
+        for (const iss of issues) {
+          const val = fields[iss.key].value.trim()
+          if (!isValidUrl(val)) {
+            fields[iss.key].style.borderColor = '#c0392b'
+            valid = false
+          } else {
+            fields[iss.key].style.borderColor = ''
+            updates[iss.key] = val
+          }
+        }
+        if (!valid) { toast('Please enter valid URLs (starting with https://)', true); return }
+        saveBtn.disabled = true
+        saveBtn.innerHTML = '<span class="mk-spinner"></span> Saving...'
+        const r = await api.put('/config', updates)
+        if (r.success) {
+          toast('Settings saved!')
+          overlay.remove()
+          nav('new')
+        } else {
+          toast(r.error || 'Failed to save', true)
+          saveBtn.disabled = false
+          saveBtn.textContent = 'Save & Continue'
+        }
+      })
+      actions.append(saveBtn)
+      modal.append(actions)
+
+      overlay.append(modal)
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove() })
+      document.body.append(overlay)
     }
 
     function render() {
@@ -181,7 +282,7 @@ export default {
         ),
         h('div', { className: 'mk-row' },
           h('button', { className: 'mk-btn mk-secondary', onClick: () => nav('config') }, '⚙ Settings'),
-          h('button', { className: 'mk-btn mk-primary', onClick: () => nav('new') }, '+ New Campaign'),
+          h('button', { className: 'mk-btn mk-primary', onClick: () => navToNewCampaign() }, '+ New Campaign'),
         ),
       )
       root.append(header)
@@ -190,7 +291,7 @@ export default {
         root.append(h('div', { className: 'mk-empty' },
           h('p', { style: { fontSize: '40px' } }, '📢'),
           h('p', null, 'No campaigns yet.'),
-          h('button', { className: 'mk-btn mk-primary', onClick: () => nav('new') }, 'Create your first campaign'),
+          h('button', { className: 'mk-btn mk-primary', onClick: () => navToNewCampaign() }, 'Create your first campaign'),
         ))
         return
       }
@@ -337,7 +438,7 @@ export default {
         { id: 'pages', label: '📄 Pages' },
         { id: 'adcopy', label: '📢 Ad Copy' },
         { id: 'ads', label: '📊 Google Ads' },
-        { id: 'images', label: '🖼 Images' },
+        { id: 'images', label: '🖼 Media' },
         { id: 'compliance', label: '🛡 Compliance' },
         { id: 'settings', label: '⚙ Settings' },
       ]
@@ -626,6 +727,91 @@ export default {
       })
 
       ct.append(grid)
+
+      // ── Promotional Video (optional) ──
+      const videoFiles = files.filter(f => f.path.includes('/videos/'))
+      const lang = langSelect.value || langs[0]
+      const existingVideo = videoFiles.find(f => f.path.includes(`/${lang}/videos/promo.mp4`))
+
+      ct.append(h('h3', { style: { marginTop: '28px', fontSize: '15px', fontWeight: '600' } }, 'Promotional Video (optional)'))
+      ct.append(h('p', { style: { fontSize: '12px', color: 'var(--txt-secondary)', marginBottom: '12px' } },
+        'Generate a short AI video clip for Performance Max, YouTube, or social media campaigns.'))
+
+      const videoCard = h('div', { className: 'mk-card' })
+
+      if (existingVideo) {
+        const rel = `${lang}/videos/promo.mp4`
+        const url = fileUrl(campaign.id, rel)
+        const player = h('video', {
+          src: url,
+          controls: true,
+          style: { width: '100%', maxHeight: '300px', borderRadius: '8px', background: '#000', marginBottom: '12px' }
+        })
+        videoCard.append(player)
+
+        const meta = h('div', { style: { fontSize: '12px', color: 'var(--txt-secondary)', marginBottom: '10px' } },
+          `promo.mp4 · ${formatSize(existingVideo.size)}`)
+        videoCard.append(meta)
+
+        const actions = h('div', { className: 'mk-row', style: { gap: '8px', flexWrap: 'wrap' } })
+        actions.append(h('a', {
+          href: url,
+          download: 'promo.mp4',
+          className: 'mk-btn mk-secondary',
+          style: { padding: '6px 14px', fontSize: '12px', textDecoration: 'none' }
+        }, '⬇ Download'))
+        actions.append(h('button', {
+          className: 'mk-btn mk-secondary',
+          style: { padding: '6px 14px', fontSize: '12px' },
+          onClick: () => { navigator.clipboard.writeText(url); toast('URL copied!') }
+        }, '📋 Copy URL'))
+
+        const regenWrap = h('div', { style: { marginTop: '14px', borderTop: '1px solid var(--border-light,#333)', paddingTop: '14px' } })
+        regenWrap.append(h('div', { style: { fontWeight: '600', fontSize: '13px', marginBottom: '8px' } }, 'Regenerate'))
+        const regenDesc = h('textarea', {
+          className: 'mk-input',
+          rows: 2,
+          placeholder: 'Describe the video you want (leave empty for auto-generated prompt)...',
+          style: { width: '100%', resize: 'vertical', marginBottom: '8px' }
+        })
+        const regenDur = h('select', { className: 'mk-input', style: { width: 'auto', marginBottom: '8px', marginRight: '8px' } })
+        ;[4, 6, 8].forEach(d => regenDur.append(h('option', { value: d, selected: d === 6 }, `${d} seconds`)))
+        regenWrap.append(regenDesc, regenDur)
+        regenWrap.append(asyncBtn('🔄 Regenerate Video', 'mk-secondary', async () => {
+          const d = await api.post(`/campaigns/${campaign.id}/generate-video`, {
+            description: regenDesc.value || undefined,
+            language: langSelect.value || langs[0],
+            duration: parseInt(regenDur.value)
+          })
+          if (d.success) { toast('Video regenerated!'); render() } else toast(d.error || 'Failed', true)
+        }))
+        actions.append()
+        videoCard.append(actions, regenWrap)
+      } else {
+        const descInput = h('textarea', {
+          className: 'mk-input',
+          rows: 3,
+          placeholder: 'Describe the video you want, e.g. "A sleek motion-graphics intro with the brand logo and teal accents, transitioning to abstract tech visuals"... (leave empty for auto-generated prompt)',
+          style: { width: '100%', resize: 'vertical', marginBottom: '10px' }
+        })
+        const durSelect = h('select', { className: 'mk-input', style: { width: 'auto', marginBottom: '10px', marginRight: '8px' } })
+        ;[4, 6, 8].forEach(d => durSelect.append(h('option', { value: d, selected: d === 6 }, `${d} seconds`)))
+
+        const hint = h('div', { style: { fontSize: '11px', color: 'var(--txt-secondary)', marginBottom: '10px' } },
+          'Video generation takes 1-2 minutes. Uses your configured video model (e.g. Veo 3.1).')
+
+        videoCard.append(descInput, durSelect, hint)
+        videoCard.append(asyncBtn('🎬 Generate Video', 'mk-primary', async () => {
+          const d = await api.post(`/campaigns/${campaign.id}/generate-video`, {
+            description: descInput.value || undefined,
+            language: langSelect.value || langs[0],
+            duration: parseInt(durSelect.value)
+          })
+          if (d.success) { toast('Video generated!'); render() } else toast(d.error || 'Failed', true)
+        }, { style: { width: '100%', justifyContent: 'center' } }))
+      }
+
+      ct.append(videoCard)
 
       langSelect.addEventListener('change', () => render())
     }

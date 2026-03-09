@@ -38,8 +38,9 @@ final readonly class ContentGenerator
             'caption_max' => 2200,
             'hashtag_count' => 30,
         ],
-        'discord' => [
-            'message_max' => 2000,
+        'facebook' => [
+            'post_max' => 63206,
+            'headline_max' => 40,
         ],
     ];
 
@@ -191,7 +192,7 @@ PROMPT;
             return $this->buildInstagramPostPrompt($campaign, $config, $langName, $brandName);
         }
 
-        return $this->buildDiscordPostPrompt($campaign, $config, $langName, $brandName);
+        return $this->buildFacebookPostPrompt($campaign, $config, $langName, $brandName);
     }
 
     /**
@@ -364,40 +365,39 @@ PROMPT;
      * @param array<string, mixed> $config
      * @return array<int, array{role: string, content: string}>
      */
-    private function buildDiscordPostPrompt(
+    private function buildFacebookPostPrompt(
         array $campaign,
         array $config,
         string $langName,
         string $brandName,
     ): array {
         $systemPrompt = <<<PROMPT
-You are a community marketing expert for Discord. Create an engaging announcement.
+You are a Facebook / Meta marketing expert. Create a compelling Facebook post.
 
 Requirements:
-- Casual, developer-friendly tone
-- Use Discord markdown formatting (**bold**, *italic*, `code`, > quotes)
-- Include a rich embed structure suggestion
-- Max 2000 characters for the message
+- Engaging, conversational tone that encourages interaction (likes, comments, shares)
+- Strong hook in the first 1-2 lines (visible before "See more")
+- Keep the main message under 400 characters for best engagement (full text can be longer)
 - Include a clear CTA with link
-- Suggest channel categories where this would fit (#announcements, #general, etc.)
+- 3-5 relevant hashtags (Facebook uses fewer than Instagram)
+- Suggest an image/video concept that pairs well
+- Write a short headline for a link preview card (max 40 characters)
 
 Output as valid JSON only (no markdown):
 {
-  "message": "The Discord message with markdown...",
-  "embed": {
-    "title": "Embed title",
-    "description": "Embed description",
-    "color": "#hex_color",
-    "fields": [{"name": "field", "value": "value", "inline": true}]
-  },
-  "suggested_channels": ["#announcements", "#general"],
-  "ping_suggestion": "Optional role/everyone ping recommendation"
+  "post_text": "The full Facebook post text...",
+  "headline": "Link preview headline (max 40 chars)",
+  "link_description": "Link preview description (max 125 chars)",
+  "hashtags": ["#hashtag1", "#hashtag2"],
+  "image_concept": "Brief description of ideal accompanying image or video",
+  "cta_text": "The call-to-action text",
+  "best_posting_time": "Suggested posting time (e.g., Tuesday 10am)"
 }
 
 Language: {$langName}
 PROMPT;
 
-        $userMessage = "Create a Discord announcement for:\n\n";
+        $userMessage = "Create a Facebook post for:\n\n";
         $userMessage .= "Product: {$brandName}\n";
         $userMessage .= "Campaign: {$campaign['title']}\n";
         $userMessage .= "Angle: {$campaign['topic']}\n";
@@ -585,6 +585,43 @@ PROMPT;
             . "Do NOT include any text in the image — text will be overlaid separately.";
     }
 
+    // --- Video Prompts ---
+
+    /**
+     * @param array<string, mixed> $campaign
+     * @param array<string, mixed> $config
+     */
+    public function buildVideoPrompt(
+        array $campaign,
+        array $config,
+        ?string $userDescription = null,
+    ): string {
+        $brandName = $config['brand_name'] ?? 'Synaplan';
+        $title = $campaign['title'] ?? 'AI Knowledge Management';
+        $accent = $campaign['accent_color'] ?? $config['default_accent_color'] ?? '#00b79d';
+        $colorScheme = $campaign['color_scheme'] ?? $config['default_color_scheme'] ?? 'dark backgrounds with vibrant accent';
+
+        if ($userDescription !== null && trim($userDescription) !== '') {
+            return "Create a short professional marketing video clip for {$brandName}. "
+                . "Campaign: {$title}. "
+                . "Color palette: {$colorScheme}, accent color {$accent}. "
+                . "Description: {$userDescription}";
+        }
+
+        $topic = $campaign['topic'] ?? $title;
+        $usps = '';
+        if (!empty($campaign['unique_selling_points'])) {
+            $usps = ' Highlight: ' . implode(', ', array_slice($campaign['unique_selling_points'], 0, 2)) . '.';
+        }
+
+        return "Create a short cinematic marketing video clip for {$brandName}. "
+            . "Theme: {$topic}.{$usps} "
+            . "Style: Smooth motion graphics with abstract tech visuals, clean transitions, "
+            . "professional corporate feel. "
+            . "Color palette: {$colorScheme}, using {$accent} as the accent color. "
+            . "No text overlays or voiceover — purely visual.";
+    }
+
     // --- Compliance / GDPR ---
 
     /**
@@ -677,7 +714,7 @@ Output as valid JSON only (no markdown):
   "topic": "Detailed campaign angle/positioning (2-3 sentences)",
   "target_audience": "Who this campaign targets",
   "unique_selling_points": ["USP 1", "USP 2", "USP 3"],
-  "recommended_platforms": ["google", "linkedin", "instagram", "discord"],
+  "recommended_platforms": ["google", "linkedin", "instagram", "facebook"],
   "languages": ["en"],
   "messaging_framework": {
     "primary_message": "The one thing we want the audience to remember",

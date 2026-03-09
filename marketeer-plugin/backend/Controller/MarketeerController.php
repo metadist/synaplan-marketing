@@ -828,7 +828,7 @@ class MarketeerController extends AbstractController
     #[Route('/campaigns/{campaignId}/generate-ad-copy', name: 'generate_ad_copy', methods: ['POST'])]
     #[OA\Post(
         path: '/api/v1/user/{userId}/plugins/marketeer/campaigns/{campaignId}/generate-ad-copy',
-        summary: 'Generate ad copy for a platform (Google RSA, LinkedIn, Instagram, Discord)',
+        summary: 'Generate ad copy for a platform (Google RSA, LinkedIn, Instagram, Facebook)',
         security: [['ApiKey' => []]],
         tags: ['Marketeer Plugin']
     )]
@@ -837,7 +837,7 @@ class MarketeerController extends AbstractController
         content: new OA\JsonContent(
             required: ['platform'],
             properties: [
-                new OA\Property(property: 'platform', type: 'string', enum: ['google', 'linkedin', 'instagram', 'discord'], example: 'google'),
+                new OA\Property(property: 'platform', type: 'string', enum: ['google', 'linkedin', 'instagram', 'facebook'], example: 'google'),
                 new OA\Property(property: 'language', type: 'string', example: 'en'),
             ]
         )
@@ -863,7 +863,7 @@ class MarketeerController extends AbstractController
         $config = $this->getPluginConfig($userId);
         $language = $data['language'] ?? $config['default_language'];
 
-        $allowedPlatforms = ['google', 'linkedin', 'instagram', 'discord'];
+        $allowedPlatforms = ['google', 'linkedin', 'instagram', 'facebook'];
         if (!in_array($platform, $allowedPlatforms, true)) {
             return $this->json(
                 ['success' => false, 'error' => 'Invalid platform. Allowed: ' . implode(', ', $allowedPlatforms)],
@@ -1145,6 +1145,113 @@ class MarketeerController extends AbstractController
             return $this->json([
                 'success' => false,
                 'error' => 'Image generation failed: ' . $e->getMessage(),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // =========================================================================
+    // Video Generation
+    // =========================================================================
+
+    #[Route('/campaigns/{campaignId}/generate-video', name: 'generate_video', methods: ['POST'])]
+    #[OA\Post(
+        path: '/api/v1/user/{userId}/plugins/marketeer/campaigns/{campaignId}/generate-video',
+        summary: 'Generate a short promotional video clip (optional collateral)',
+        security: [['ApiKey' => []]],
+        tags: ['Marketeer Plugin']
+    )]
+    #[OA\RequestBody(
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'description', type: 'string', example: 'A sleek motion-graphics intro showing the brand logo with teal accents'),
+                new OA\Property(property: 'language', type: 'string', example: 'en'),
+                new OA\Property(property: 'duration', type: 'integer', enum: [4, 6, 8], example: 6),
+            ]
+        )
+    )]
+    #[OA\Response(response: 200, description: 'Video generated')]
+    public function generateVideo(
+        Request $request,
+        int $userId,
+        string $campaignId,
+        #[CurrentUser] ?User $user,
+    ): JsonResponse {
+        if (!$this->canAccessPlugin($user, $userId)) {
+            return $this->json(['success' => false, 'error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $campaign = $this->pluginData->get($userId, self::PLUGIN_NAME, self::DATA_TYPE_CAMPAIGN, $campaignId);
+        if ($campaign === null) {
+            return $this->json(['success' => false, 'error' => 'Campaign not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+        $config = $this->getPluginConfig($userId);
+        $language = $data['language'] ?? $config['default_language'];
+        $duration = $data['duration'] ?? 6;
+        $description = $data['description'] ?? null;
+
+        if (!in_array($duration, [4, 6, 8], true)) {
+            return $this->json(
+                ['success' => false, 'error' => 'Invalid duration. Allowed: 4, 6, 8 seconds'],
+                Response::HTTP_BAD_REQUEST,
+            );
+        }
+
+        try {
+            $prompt = $this->contentGenerator->buildVideoPrompt($campaign, $config, $description);
+
+            $result = $this->aiFacade->generateVideo($prompt, $userId, [
+                'duration' => $duration,
+            ]);
+
+            if (empty($result['videos'])) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'No video returned by provider',
+                ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+
+            $videoData = $result['videos'][0];
+            $filename = $this->landingPageService->saveVideoFile(
+                $userId,
+                $campaignId,
+                $language,
+                'promo',
+                $videoData,
+            );
+
+            $this->adCopyService->saveCollateral($userId, $campaignId, 'video_promo', $language, [
+                'file' => $filename,
+                'prompt' => $prompt,
+                'duration' => $duration,
+                'provider' => $result['provider'] ?? null,
+            ]);
+
+            $this->logger->info('Marketeer video generated', [
+                'user_id' => $userId,
+                'campaign' => $campaignId,
+                'duration' => $duration,
+                'filename' => $filename,
+            ]);
+
+            return $this->json([
+                'success' => true,
+                'file' => $filename,
+                'type' => 'video_promo',
+                'duration' => $duration,
+                'provider' => $result['provider'] ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Marketeer video generation failed', [
+                'user_id' => $userId,
+                'campaign' => $campaignId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->json([
+                'success' => false,
+                'error' => 'Video generation failed: ' . $e->getMessage(),
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
@@ -1692,7 +1799,7 @@ class MarketeerController extends AbstractController
             return $this->json(['success' => false, 'error' => 'File not found'], Response::HTTP_NOT_FOUND);
         }
 
-        $mimeTypes = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp', 'svg' => 'image/svg+xml', 'html' => 'text/html', 'txt' => 'text/plain', 'css' => 'text/css', 'js' => 'application/javascript'];
+        $mimeTypes = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp', 'svg' => 'image/svg+xml', 'mp4' => 'video/mp4', 'html' => 'text/html', 'txt' => 'text/plain', 'css' => 'text/css', 'js' => 'application/javascript'];
         $ext = strtolower(pathinfo($realFile, PATHINFO_EXTENSION));
         $mime = $mimeTypes[$ext] ?? 'application/octet-stream';
 
