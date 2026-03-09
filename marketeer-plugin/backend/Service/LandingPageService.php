@@ -6,6 +6,7 @@ namespace Plugin\Marketeer\Service;
 
 use App\Service\File\UserUploadPathBuilder;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Manages file storage for generated landing pages, images, and keyword files.
@@ -23,7 +24,7 @@ use Psr\Log\LoggerInterface;
 final readonly class LandingPageService
 {
     public function __construct(
-        private string $uploadDir,
+        #[Autowire('%app.upload_dir%')] private string $uploadDir,
         private UserUploadPathBuilder $pathBuilder,
         private LoggerInterface $logger,
     ) {
