@@ -114,23 +114,48 @@ MODAL;
             $logoSection = "\n9. Inside the card, at the very top (above the hero text), add the brand logo: <img src=\"{$logoUrl}\" alt=\"{$brandName} Logo\" style=\"max-height:40px; margin-bottom:1rem; z-index:10; position:relative;\">";
         }
 
-        return <<<PROMPT
-Generate a single-file HTML landing page. Language: {$langName}. Brand: {$brandName}. Accent color: {$accent}. Color scheme: {$colorScheme}.
+        $customPrompt = $config['landing_page_prompt'] ?? '';
+
+        $template = trim($customPrompt) !== '' ? $customPrompt : self::DEFAULT_LANDING_PAGE_PROMPT;
+
+        $replacements = [
+            '{{language}}' => $langName,
+            '{{brand_name}}' => $brandName,
+            '{{accent_color}}' => $accent,
+            '{{color_scheme}}' => $colorScheme,
+            '{{privacy_url}}' => $privacyUrl,
+            '{{imprint_url}}' => $imprintUrl,
+            '{{logo_section}}' => $logoSection,
+            '{{modal_section}}' => $modalSection,
+            '{{cta_buttons}}' => $ctaButtons,
+            '{{usp_list}}' => $uspList,
+        ];
+
+        return str_replace(array_keys($replacements), array_values($replacements), $template);
+    }
+
+    public function getDefaultLandingPagePromptTemplate(): string
+    {
+        return self::DEFAULT_LANDING_PAGE_PROMPT;
+    }
+
+    private const DEFAULT_LANDING_PAGE_PROMPT = <<<'PROMPT'
+Generate a single-file HTML landing page. Language: {{language}}. Brand: {{brand_name}}. Accent color: {{accent_color}}. Color scheme: {{color_scheme}}.
 
 DESIGN — follow this EXACT layout:
 1. html,body: margin:0, padding:0, box-sizing:border-box. Body: min-height:100vh, display:flex, flex-direction:column, align-items:center, justify-content:center, padding:20px, background:#111, font-family:'Inter',sans-serif, color:#f2f2f2. Do NOT use height:100%.
 2. ONE centered card (class "poster-container"): max-width:468px, width:100%, min-height:600px, background:#f2f2f2, border:8px solid #fff, border-radius:5px, box-shadow:0 20px 50px rgba(0,0,0,0.5), overflow:hidden, display:flex, flex-direction:column, position:relative.
 3. Background layer inside card (class "buzzword-bg"): position:absolute, inset:0, z-index:1, overflow:hidden, pointer-events:none. Contains 6 div rows (.buzz-row) with scrolling tech buzzwords. Each row: position:absolute, white-space:nowrap, font-weight:800, text-transform:uppercase, letter-spacing:0.05em. Text colors: #fff, #e6e6e6, #d9d9d9. Each row at different top% (5,18,34,52,68,82), different font-sizes (1.2-2.4rem), animated with @keyframes scroll-left / scroll-right at 22-35s. Duplicate the text in each row for seamless loop.
 4. Content layer (class "poster-content"): position:relative, z-index:10, flex:1, display:flex, flex-direction:column, justify-content:center, align-items:center, padding:2.5rem, text-align:center. Contains hero-text div (flex:1 centered) and footer-block div (flex-shrink:0).
-5. hero-text: headline in 'Playfair Display' italic 900 (font-size:clamp(2rem,7vw,2.85rem), line-height:1.05, color:#000), subheadline (font-size:1.09rem, color:#222, max-width:340px), thin divider (40px × 3px, background:{$accent}), small tagline (0.81rem, uppercase, letter-spacing:0.2em, color:#555).
+5. hero-text: headline in 'Playfair Display' italic 900 (font-size:clamp(2rem,7vw,2.85rem), line-height:1.05, color:#000), subheadline (font-size:1.09rem, color:#222, max-width:340px), thin divider (40px × 3px, background:{{accent_color}}), small tagline (0.81rem, uppercase, letter-spacing:0.2em, color:#555).
 6. footer-block: credits line (0.6rem, uppercase, letter-spacing:0.15em, color:#999) then CTA buttons.
-7. action-btn style: background:{$accent}, color:#fff, border:2px solid darker-accent, padding:0.9rem 2.2rem, font-weight:700, text-transform:uppercase, letter-spacing:0.15em, border-radius:4px, font-size:1rem, text-decoration:none, display:inline-block, animation:gentle-float 3s ease-in-out infinite, box-shadow:0 4px 15px rgba(0,0,0,0.2). @keyframes gentle-float: 0%,100% translateY(0), 50% translateY(-5px). Hover: animation paused, transform:scale(1.05).
-8. Below the card: div.imprint with two links (Privacy → {$privacyUrl}, Imprint → {$imprintUrl}), font-size:0.75rem, color:#666, a:hover color:#fff.{$logoSection}
-{$modalSection}
+7. action-btn style: background:{{accent_color}}, color:#fff, border:2px solid darker-accent, padding:0.9rem 2.2rem, font-weight:700, text-transform:uppercase, letter-spacing:0.15em, border-radius:4px, font-size:1rem, text-decoration:none, display:inline-block, animation:gentle-float 3s ease-in-out infinite, box-shadow:0 4px 15px rgba(0,0,0,0.2). @keyframes gentle-float: 0%,100% translateY(0), 50% translateY(-5px). Hover: animation paused, transform:scale(1.05).
+8. Below the card: div.imprint with two links (Privacy → {{privacy_url}}, Imprint → {{imprint_url}}), font-size:0.75rem, color:#666, a:hover color:#fff.{{logo_section}}
+{{modal_section}}
 COOKIE CONSENT — div#cookiebar AFTER all content, BEFORE </body>:
 - Style: background:#1a1a2e, padding:16px 24px, text-align:center, font-size:13px, color:#fff, display:flex, align-items:center, justify-content:center, flex-wrap:wrap, gap:12px.
-- Inner: <span> with cookie text + <a href="{$privacyUrl}" style="color:{$accent}">Privacy Policy</a>.
-- Two buttons: "Essential only" (background:transparent, border:1px solid #fff, color:#fff, padding:8px 16px, border-radius:6px, cursor:pointer, font-size:13px) and "Accept all" (background:{$accent}, border:none, color:#fff, padding:8px 16px, border-radius:6px, cursor:pointer, font-weight:600, font-size:13px).
+- Inner: <span> with cookie text + <a href="{{privacy_url}}" style="color:{{accent_color}}">Privacy Policy</a>.
+- Two buttons: "Essential only" (background:transparent, border:1px solid #fff, color:#fff, padding:8px 16px, border-radius:6px, cursor:pointer, font-size:13px) and "Accept all" (background:{{accent_color}}, border:none, color:#fff, padding:8px 16px, border-radius:6px, cursor:pointer, font-weight:600, font-size:13px).
 - "Essential only" onclick: document.getElementById('cookiebar').style.display='none'
 - "Accept all" onclick: document.getElementById('cookiebar').style.display='none'
 - IMPORTANT: use INLINE onclick handlers directly on each button. Do NOT rely on localStorage or external scripts. The onclick MUST directly set style.display='none'.
@@ -139,11 +164,10 @@ TECHNICAL:
 - Self-contained HTML, inline <style>.
 - Google Fonts: Inter (300,400,600,700,900) and Playfair Display (italic 700, italic 900).
 - <meta charset="UTF-8">, <meta viewport>, <title>, <meta description>, OG + Twitter Card tags.
-- Buzzword text: 30-40 topic-relevant terms, duplicated per row for seamless loop.{$ctaButtons}{$uspList}
+- Buzzword text: 30-40 topic-relevant terms, duplicated per row for seamless loop.{{cta_buttons}}{{usp_list}}
 
 Output ONLY the complete HTML. No markdown. Start with <!DOCTYPE html>.
 PROMPT;
-    }
 
     /**
      * @param array<string, mixed> $campaign

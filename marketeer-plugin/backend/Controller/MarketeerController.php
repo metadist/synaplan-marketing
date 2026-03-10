@@ -163,11 +163,41 @@ class MarketeerController extends AbstractController
             }
         }
 
+        if (array_key_exists('landing_page_prompt', $data)) {
+            $prompt = trim((string) $data['landing_page_prompt']);
+            if ($prompt === '') {
+                $this->pluginData->delete($userId, self::PLUGIN_NAME, 'config', 'landing_page_prompt');
+            } else {
+                $this->pluginData->set($userId, self::PLUGIN_NAME, 'config', 'landing_page_prompt', ['prompt' => $prompt]);
+            }
+            $updated[] = 'landing_page_prompt';
+        }
+
         return $this->json([
             'success' => true,
             'message' => 'Configuration updated',
             'updated' => $updated,
             'config' => $this->getPluginConfig($userId),
+        ]);
+    }
+
+    #[Route('/config/default-prompt', name: 'config_default_prompt', methods: ['GET'])]
+    #[OA\Get(
+        path: '/api/v1/user/{userId}/plugins/marketeer/config/default-prompt',
+        summary: 'Get the built-in default landing page prompt template',
+        security: [['ApiKey' => []]],
+        tags: ['Marketeer Plugin']
+    )]
+    #[OA\Response(response: 200, description: 'Default prompt')]
+    public function getDefaultPrompt(int $userId, #[CurrentUser] ?User $user): JsonResponse
+    {
+        if (!$this->canAccessPlugin($user, $userId)) {
+            return $this->json(['success' => false, 'error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        return $this->json([
+            'success' => true,
+            'prompt' => $this->contentGenerator->getDefaultLandingPagePromptTemplate(),
         ]);
     }
 
@@ -2055,6 +2085,9 @@ class MarketeerController extends AbstractController
         foreach ($defaults as $key => $default) {
             $config[$key] = $this->configRepository->getValue($userId, self::CONFIG_GROUP, $key) ?? $default;
         }
+
+        $promptData = $this->pluginData->get($userId, self::PLUGIN_NAME, 'config', 'landing_page_prompt');
+        $config['landing_page_prompt'] = $promptData['prompt'] ?? '';
 
         return $config;
     }

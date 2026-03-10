@@ -43,23 +43,50 @@ const IMG_STYLES = [
 
 // ─── API Client ──────────────────────────────────────────────────────────────
 
+function showSessionExpired() {
+  if (document.querySelector('.mk-session-banner')) return
+  const banner = h('div', { className: 'mk-session-banner' },
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' } },
+      h('span', { style: { fontSize: '20px' } }, '🔒'),
+      h('span', null, 'Your session has expired.'),
+      h('button', {
+        className: 'mk-btn mk-primary',
+        style: { padding: '6px 16px', fontSize: '13px' },
+        onClick: () => { window.location.reload() },
+      }, 'Reload & log in'),
+    ),
+  )
+  document.body.prepend(banner)
+}
+
 function createApi(baseUrl, userId) {
   const url = (path) => `${baseUrl}/api/v1/user/${userId}/plugins/marketeer${path}`
 
   async function call(method, path, body) {
-    const opts = {
-      method,
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      credentials: 'include',
+    let res
+    try {
+      const opts = {
+        method,
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        credentials: 'include',
+      }
+      if (body) opts.body = JSON.stringify(body)
+      res = await fetch(url(path), opts)
+    } catch (e) {
+      return { success: false, error: 'Network error — check your connection and try again.', _network: true }
     }
-    if (body) opts.body = JSON.stringify(body)
-    const res = await fetch(url(path), opts)
+
+    if (res.status === 401 || res.status === 403) {
+      showSessionExpired()
+      return { success: false, error: 'Session expired — please reload the page to log in again.', _auth: true }
+    }
+
     const contentType = res.headers.get('content-type') || ''
     if (!contentType.includes('application/json')) {
-      return { success: false, error: `Server returned ${res.status}: non-JSON response` }
+      return { success: false, error: `Unexpected server response (${res.status}). Try reloading the page.` }
     }
     if (!res.ok) {
-      try { return await res.json() } catch { return { success: false, error: `Server error ${res.status}` } }
+      try { return await res.json() } catch { return { success: false, error: `Server error (${res.status})` } }
     }
     return res.json()
   }
@@ -118,6 +145,7 @@ const CSS = `
   .mk-stat{text-align:center;padding:12px}.mk-stat-num{font-size:28px;font-weight:700;color:var(--brand,#00b79d)}.mk-stat-lbl{font-size:11px;color:var(--txt-secondary,#999);text-transform:uppercase}
   .mk-toast{position:fixed;bottom:24px;right:24px;background:#00b79d;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;z-index:9999;animation:mk-fade .3s}
   .mk-toast.error{background:#c0392b}
+  .mk-session-banner{position:fixed;top:0;left:0;right:0;z-index:10001;background:#c0392b;color:#fff;padding:12px 20px;font-size:14px;text-align:center;animation:mk-fade .3s;box-shadow:0 2px 12px rgba(0,0,0,0.4)}
   @keyframes mk-fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
   .mk-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;animation:mk-fade .2s;color:var(--txt-primary,#e0e0e0);font-family:system-ui,-apple-system,sans-serif}
   .mk-modal{background:var(--bg-card,#1e1e2e);border:1px solid var(--border-light,#333);border-radius:16px;padding:28px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.5);color:var(--txt-primary,#e0e0e0)}
@@ -144,7 +172,8 @@ function h(tag, attrs, ...children) {
 }
 
 function toast(msg, err) {
-  const t = h('div', { className: `mk-toast${err ? ' error' : ''}` }, msg)
+  const text = msg || (err ? 'An error occurred' : 'Done')
+  const t = h('div', { className: `mk-toast${err ? ' error' : ''}` }, text)
   document.body.append(t)
   setTimeout(() => t.remove(), 3000)
 }
@@ -284,7 +313,12 @@ export default {
       root.innerHTML = ''
 
       if (!d.success) {
-        root.innerHTML = '<div class="mk-empty"><p>Could not load dashboard. Is the plugin installed?</p></div>'
+        root.innerHTML = ''
+        root.append(h('div', { className: 'mk-empty' },
+          h('p', { style: { fontSize: '32px', marginBottom: '8px' } }, d._auth ? '🔒' : '⚠️'),
+          h('p', null, d.error || 'Could not load dashboard. Is the plugin installed?'),
+          h('button', { className: 'mk-btn mk-primary', style: { marginTop: '12px' }, onClick: () => window.location.reload() }, 'Reload page'),
+        ))
         return
       }
 
@@ -1218,6 +1252,69 @@ export default {
         h('div', { className: 'mk-grow' }, field('Google Ads Conversion ID', 'text', cfg.gads_conversion_id, v => cfg.gads_conversion_id = v, 'AW-XXXXXXXXX')),
       ))
       root.append(sec3)
+
+      const sec4 = h('div', { className: 'mk-card' })
+      sec4.append(h('h3', null, 'Landing Page Prompt'))
+      sec4.append(h('div', { style: { fontSize: '12px', color: 'var(--txt-secondary)', marginBottom: '8px' } },
+        'Customize the AI prompt used to generate landing pages. Available placeholders: ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{language}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{brand_name}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{accent_color}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{color_scheme}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{privacy_url}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{imprint_url}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{logo_section}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{cta_buttons}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{usp_list}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{modal_section}}'),
+      ))
+      const isCustom = cfg.landing_page_prompt && cfg.landing_page_prompt.trim().length > 0
+      const promptStatus = h('span', {
+        className: `mk-badge ${isCustom ? 'mk-badge-active' : 'mk-badge-draft'}`,
+        style: { marginLeft: '8px', fontSize: '11px' },
+      }, isCustom ? 'Custom' : 'Default')
+      sec4.querySelector('h3').append(promptStatus)
+
+      const promptArea = h('textarea', {
+        className: 'mk-input mk-textarea',
+        value: cfg.landing_page_prompt || '',
+        placeholder: '(using built-in default — paste your custom prompt here to override)',
+        style: { width: '100%', minHeight: '220px', resize: 'vertical', fontFamily: 'monospace', fontSize: '12px', lineHeight: '1.5' },
+        onInput: (e) => { cfg.landing_page_prompt = e.target.value },
+      })
+      sec4.append(promptArea)
+
+      const promptActions = h('div', { className: 'mk-row', style: { gap: '8px', marginTop: '8px' } })
+      promptActions.append(
+        asyncBtn('Load current default', 'mk-secondary', async () => {
+          const r = await api.get('/config/default-prompt')
+          if (r.success) {
+            promptArea.value = r.prompt
+            cfg.landing_page_prompt = r.prompt
+            toast('Default prompt loaded into editor — edit and save when ready.')
+          } else toast(r.error || 'Failed', true)
+        }, { style: { fontSize: '12px', padding: '6px 12px' } }),
+        h('button', {
+          className: 'mk-btn mk-secondary',
+          style: { fontSize: '12px', padding: '6px 12px' },
+          onClick: () => {
+            promptArea.value = ''
+            cfg.landing_page_prompt = ''
+            toast('Prompt cleared — will use built-in default after saving.')
+          },
+        }, 'Reset to default'),
+      )
+      sec4.append(promptActions)
+      root.append(sec4)
 
       root.append(h('div', { style: { textAlign: 'right', marginTop: '8px' } },
         asyncBtn('Save Settings', 'mk-primary', async () => {

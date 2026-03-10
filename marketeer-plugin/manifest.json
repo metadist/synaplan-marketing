@@ -14,6 +14,7 @@
     {"path": "/setup", "method": "POST", "description": "Initialize plugin with defaults"},
     {"path": "/config", "method": "GET", "description": "Get plugin configuration"},
     {"path": "/config", "method": "PUT", "description": "Update plugin configuration"},
+    {"path": "/config/default-prompt", "method": "GET", "description": "Get built-in default landing page prompt template"},
     {"path": "/dashboard", "method": "GET", "description": "Campaign overview dashboard"},
     {"path": "/plan", "method": "POST", "description": "AI-generate campaign plan from idea"},
     {"path": "/campaigns", "method": "GET", "description": "List all campaigns"},
