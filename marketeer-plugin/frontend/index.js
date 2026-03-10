@@ -1316,6 +1316,131 @@ export default {
       sec4.append(promptActions)
       root.append(sec4)
 
+      // ── Media Prompts (Image + Video) ──
+      const sec5 = h('div', { className: 'mk-card' })
+      sec5.append(h('h3', null, 'Media Prompts'))
+
+      // -- Image Prompt --
+      const imgHeader = h('div', { style: { marginBottom: '12px' } })
+      const imgLabel = h('div', { style: { fontSize: '14px', fontWeight: '600', marginBottom: '4px' } }, 'Image Prompt')
+      const isImgCustom = cfg.image_prompt && cfg.image_prompt.trim().length > 0
+      imgLabel.append(h('span', {
+        className: `mk-badge ${isImgCustom ? 'mk-badge-active' : 'mk-badge-draft'}`,
+        style: { marginLeft: '8px', fontSize: '11px' },
+      }, isImgCustom ? 'Custom' : 'Default'))
+      imgHeader.append(imgLabel)
+      imgHeader.append(h('div', { style: { fontSize: '12px', color: 'var(--txt-secondary)', marginBottom: '4px' } },
+        'Customize the AI prompt used to generate marketing images. Available placeholders: ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{brand_name}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{title}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{accent_color}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{color_scheme}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{style_description}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{type_hint}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{dimensions}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{style_notes}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{image_type}}'),
+      ))
+      sec5.append(imgHeader)
+
+      const imgPromptArea = h('textarea', {
+        className: 'mk-input mk-textarea',
+        value: cfg.image_prompt || '',
+        placeholder: '(using built-in default — paste your custom prompt here to override)',
+        style: { width: '100%', minHeight: '140px', resize: 'vertical', fontFamily: 'monospace', fontSize: '12px', lineHeight: '1.5' },
+        onInput: (e) => { cfg.image_prompt = e.target.value },
+      })
+      sec5.append(imgPromptArea)
+
+      const imgPromptActions = h('div', { className: 'mk-row', style: { gap: '8px', marginTop: '8px' } })
+      imgPromptActions.append(
+        asyncBtn('Load current default', 'mk-secondary', async () => {
+          const r = await api.get('/config/default-media-prompts')
+          if (r.success) {
+            imgPromptArea.value = r.image_prompt
+            cfg.image_prompt = r.image_prompt
+            toast('Default image prompt loaded into editor — edit and save when ready.')
+          } else toast(r.error || 'Failed', true)
+        }, { style: { fontSize: '12px', padding: '6px 12px' } }),
+        h('button', {
+          className: 'mk-btn mk-secondary',
+          style: { fontSize: '12px', padding: '6px 12px' },
+          onClick: () => {
+            imgPromptArea.value = ''
+            cfg.image_prompt = ''
+            toast('Image prompt cleared — will use built-in default after saving.')
+          },
+        }, 'Reset to default'),
+      )
+      sec5.append(imgPromptActions)
+
+      // -- Video Prompt --
+      sec5.append(h('hr', { className: 'mk-sep' }))
+      const vidHeader = h('div', { style: { marginBottom: '12px' } })
+      const vidLabel = h('div', { style: { fontSize: '14px', fontWeight: '600', marginBottom: '4px' } }, 'Video Prompt')
+      const isVidCustom = cfg.video_prompt && cfg.video_prompt.trim().length > 0
+      vidLabel.append(h('span', {
+        className: `mk-badge ${isVidCustom ? 'mk-badge-active' : 'mk-badge-draft'}`,
+        style: { marginLeft: '8px', fontSize: '11px' },
+      }, isVidCustom ? 'Custom' : 'Default'))
+      vidHeader.append(vidLabel)
+      vidHeader.append(h('div', { style: { fontSize: '12px', color: 'var(--txt-secondary)', marginBottom: '4px' } },
+        'Customize the AI prompt used to generate promotional videos (auto-generated mode only; user-provided descriptions bypass this). Available placeholders: ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{brand_name}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{title}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{topic}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{usps}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{accent_color}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{color_scheme}}'),
+      ))
+      sec5.append(vidHeader)
+
+      const vidPromptArea = h('textarea', {
+        className: 'mk-input mk-textarea',
+        value: cfg.video_prompt || '',
+        placeholder: '(using built-in default — paste your custom prompt here to override)',
+        style: { width: '100%', minHeight: '140px', resize: 'vertical', fontFamily: 'monospace', fontSize: '12px', lineHeight: '1.5' },
+        onInput: (e) => { cfg.video_prompt = e.target.value },
+      })
+      sec5.append(vidPromptArea)
+
+      const vidPromptActions = h('div', { className: 'mk-row', style: { gap: '8px', marginTop: '8px' } })
+      vidPromptActions.append(
+        asyncBtn('Load current default', 'mk-secondary', async () => {
+          const r = await api.get('/config/default-media-prompts')
+          if (r.success) {
+            vidPromptArea.value = r.video_prompt
+            cfg.video_prompt = r.video_prompt
+            toast('Default video prompt loaded into editor — edit and save when ready.')
+          } else toast(r.error || 'Failed', true)
+        }, { style: { fontSize: '12px', padding: '6px 12px' } }),
+        h('button', {
+          className: 'mk-btn mk-secondary',
+          style: { fontSize: '12px', padding: '6px 12px' },
+          onClick: () => {
+            vidPromptArea.value = ''
+            cfg.video_prompt = ''
+            toast('Video prompt cleared — will use built-in default after saving.')
+          },
+        }, 'Reset to default'),
+      )
+      sec5.append(vidPromptActions)
+
+      root.append(sec5)
+
       root.append(h('div', { style: { textAlign: 'right', marginTop: '8px' } },
         asyncBtn('Save Settings', 'mk-primary', async () => {
           const r = await api.put('/config', cfg)

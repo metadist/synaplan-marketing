@@ -163,14 +163,17 @@ class MarketeerController extends AbstractController
             }
         }
 
-        if (array_key_exists('landing_page_prompt', $data)) {
-            $prompt = trim((string) $data['landing_page_prompt']);
-            if ($prompt === '') {
-                $this->pluginData->delete($userId, self::PLUGIN_NAME, 'config', 'landing_page_prompt');
-            } else {
-                $this->pluginData->set($userId, self::PLUGIN_NAME, 'config', 'landing_page_prompt', ['prompt' => $prompt]);
+        $promptKeys = ['landing_page_prompt', 'image_prompt', 'video_prompt'];
+        foreach ($promptKeys as $promptKey) {
+            if (array_key_exists($promptKey, $data)) {
+                $prompt = trim((string) $data[$promptKey]);
+                if ($prompt === '') {
+                    $this->pluginData->delete($userId, self::PLUGIN_NAME, 'config', $promptKey);
+                } else {
+                    $this->pluginData->set($userId, self::PLUGIN_NAME, 'config', $promptKey, ['prompt' => $prompt]);
+                }
+                $updated[] = $promptKey;
             }
-            $updated[] = 'landing_page_prompt';
         }
 
         return $this->json([
@@ -198,6 +201,27 @@ class MarketeerController extends AbstractController
         return $this->json([
             'success' => true,
             'prompt' => $this->contentGenerator->getDefaultLandingPagePromptTemplate(),
+        ]);
+    }
+
+    #[Route('/config/default-media-prompts', name: 'config_default_media_prompts', methods: ['GET'])]
+    #[OA\Get(
+        path: '/api/v1/user/{userId}/plugins/marketeer/config/default-media-prompts',
+        summary: 'Get the built-in default image and video prompt templates',
+        security: [['ApiKey' => []]],
+        tags: ['Marketeer Plugin']
+    )]
+    #[OA\Response(response: 200, description: 'Default media prompts')]
+    public function getDefaultMediaPrompts(int $userId, #[CurrentUser] ?User $user): JsonResponse
+    {
+        if (!$this->canAccessPlugin($user, $userId)) {
+            return $this->json(['success' => false, 'error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        return $this->json([
+            'success' => true,
+            'image_prompt' => $this->contentGenerator->getDefaultImagePromptTemplate(),
+            'video_prompt' => $this->contentGenerator->getDefaultVideoPromptTemplate(),
         ]);
     }
 
@@ -2086,8 +2110,11 @@ class MarketeerController extends AbstractController
             $config[$key] = $this->configRepository->getValue($userId, self::CONFIG_GROUP, $key) ?? $default;
         }
 
-        $promptData = $this->pluginData->get($userId, self::PLUGIN_NAME, 'config', 'landing_page_prompt');
-        $config['landing_page_prompt'] = $promptData['prompt'] ?? '';
+        $promptKeys = ['landing_page_prompt', 'image_prompt', 'video_prompt'];
+        foreach ($promptKeys as $promptKey) {
+            $promptData = $this->pluginData->get($userId, self::PLUGIN_NAME, 'config', $promptKey);
+            $config[$promptKey] = $promptData['prompt'] ?? '';
+        }
 
         return $config;
     }

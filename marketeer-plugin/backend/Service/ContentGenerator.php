@@ -574,6 +574,19 @@ PROMPT;
 
     // --- Image Prompts ---
 
+    private const STYLE_DIRECTIONS = [
+        'tech-forward' => 'Clean, tech-forward design with gradients and abstract geometric shapes. Modern and sleek.',
+        'photorealistic' => 'High-quality photorealistic imagery. Natural lighting, real-world textures and depth of field.',
+        'illustration' => 'Hand-drawn illustration style. Warm, approachable, and artistically crafted with visible brush strokes or pen lines.',
+        'flat-design' => 'Flat design with bold solid colors, simple shapes, and no shadows or gradients. Minimal and graphic.',
+        '3d-render' => 'Polished 3D rendered scene with realistic materials, soft lighting, and depth. Cinematic quality.',
+        'watercolor' => 'Soft watercolor painting aesthetic. Gentle washes of color with organic, flowing edges.',
+        'minimalist' => 'Ultra-minimalist. Maximum whitespace, one or two focal elements only. Restrained and elegant.',
+        'retro' => 'Vintage retro aesthetic. Muted tones, halftone textures, and nostalgic 70s/80s graphic style.',
+        'corporate' => 'Corporate and polished. Clean lines, stock-photo aesthetic, professional business imagery.',
+        'bold-graphic' => 'Bold graphic poster style. High contrast, strong typography-friendly composition, punchy colors.',
+    ];
+
     /**
      * @param array<string, mixed> $campaign
      * @param array<string, mixed> $config
@@ -598,20 +611,7 @@ PROMPT;
             default => '1920x1080 pixels (hero banner)',
         };
 
-        $styleDirections = [
-            'tech-forward' => 'Clean, tech-forward design with gradients and abstract geometric shapes. Modern and sleek.',
-            'photorealistic' => 'High-quality photorealistic imagery. Natural lighting, real-world textures and depth of field.',
-            'illustration' => 'Hand-drawn illustration style. Warm, approachable, and artistically crafted with visible brush strokes or pen lines.',
-            'flat-design' => 'Flat design with bold solid colors, simple shapes, and no shadows or gradients. Minimal and graphic.',
-            '3d-render' => 'Polished 3D rendered scene with realistic materials, soft lighting, and depth. Cinematic quality.',
-            'watercolor' => 'Soft watercolor painting aesthetic. Gentle washes of color with organic, flowing edges.',
-            'minimalist' => 'Ultra-minimalist. Maximum whitespace, one or two focal elements only. Restrained and elegant.',
-            'retro' => 'Vintage retro aesthetic. Muted tones, halftone textures, and nostalgic 70s/80s graphic style.',
-            'corporate' => 'Corporate and polished. Clean lines, stock-photo aesthetic, professional business imagery.',
-            'bold-graphic' => 'Bold graphic poster style. High contrast, strong typography-friendly composition, punchy colors.',
-        ];
-
-        $style = $styleDirections[$imageStyle] ?? $styleDirections['tech-forward'];
+        $style = self::STYLE_DIRECTIONS[$imageStyle] ?? self::STYLE_DIRECTIONS['tech-forward'];
 
         $typeHint = match ($imageType) {
             'icon' => ' Simple, recognizable icon with bold shapes. Single focal element on clean background.',
@@ -619,19 +619,32 @@ PROMPT;
             default => '',
         };
 
-        $prompt = "Create a professional marketing image for {$brandName}. "
-            . "Theme: {$title}. "
-            . "Visual style: {$style}{$typeHint} "
-            . "Color palette: {$colorScheme}, using {$accent} as the main accent. "
-            . "Dimensions: {$dimensions}. "
-            . "Do NOT include any text in the image — text will be overlaid separately.";
+        $customPrompt = $config['image_prompt'] ?? '';
+        $template = trim($customPrompt) !== '' ? $customPrompt : self::DEFAULT_IMAGE_PROMPT;
 
-        if (trim($styleNotes) !== '') {
-            $prompt .= " Additional direction: {$styleNotes}";
-        }
+        $replacements = [
+            '{{brand_name}}' => $brandName,
+            '{{title}}' => $title,
+            '{{accent_color}}' => $accent,
+            '{{color_scheme}}' => $colorScheme,
+            '{{style_description}}' => $style,
+            '{{type_hint}}' => $typeHint,
+            '{{dimensions}}' => $dimensions,
+            '{{style_notes}}' => trim($styleNotes) !== '' ? " Additional direction: {$styleNotes}" : '',
+            '{{image_type}}' => $imageType,
+        ];
 
-        return $prompt;
+        return str_replace(array_keys($replacements), array_values($replacements), $template);
     }
+
+    public function getDefaultImagePromptTemplate(): string
+    {
+        return self::DEFAULT_IMAGE_PROMPT;
+    }
+
+    private const DEFAULT_IMAGE_PROMPT = <<<'PROMPT'
+Create a professional marketing image for {{brand_name}}. Theme: {{title}}. Visual style: {{style_description}}{{type_hint}} Color palette: {{color_scheme}}, using {{accent_color}} as the main accent. Dimensions: {{dimensions}}. Do NOT include any text in the image — text will be overlaid separately.{{style_notes}}
+PROMPT;
 
     // --- Video Prompts ---
 
@@ -662,13 +675,29 @@ PROMPT;
             $usps = ' Highlight: ' . implode(', ', array_slice($campaign['unique_selling_points'], 0, 2)) . '.';
         }
 
-        return "Create a short cinematic marketing video clip for {$brandName}. "
-            . "Theme: {$topic}.{$usps} "
-            . "Style: Smooth motion graphics with abstract tech visuals, clean transitions, "
-            . "professional corporate feel. "
-            . "Color palette: {$colorScheme}, using {$accent} as the accent color. "
-            . "No text overlays or voiceover — purely visual.";
+        $customPrompt = $config['video_prompt'] ?? '';
+        $template = trim($customPrompt) !== '' ? $customPrompt : self::DEFAULT_VIDEO_PROMPT;
+
+        $replacements = [
+            '{{brand_name}}' => $brandName,
+            '{{title}}' => $title,
+            '{{topic}}' => $topic,
+            '{{usps}}' => $usps,
+            '{{accent_color}}' => $accent,
+            '{{color_scheme}}' => $colorScheme,
+        ];
+
+        return str_replace(array_keys($replacements), array_values($replacements), $template);
     }
+
+    public function getDefaultVideoPromptTemplate(): string
+    {
+        return self::DEFAULT_VIDEO_PROMPT;
+    }
+
+    private const DEFAULT_VIDEO_PROMPT = <<<'PROMPT'
+Create a short cinematic marketing video clip for {{brand_name}}. Theme: {{topic}}.{{usps}} Style: Smooth motion graphics with abstract tech visuals, clean transitions, professional corporate feel. Color palette: {{color_scheme}}, using {{accent_color}} as the accent color. No text overlays or voiceover — purely visual.
+PROMPT;
 
     // --- Compliance / GDPR ---
 
