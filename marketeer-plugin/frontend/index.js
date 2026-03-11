@@ -127,8 +127,18 @@ function showSessionExpired() {
 
 function createApi(baseUrl, userId) {
   const url = (path) => `${baseUrl}/api/v1/user/${userId}/plugins/marketeer${path}`
+  let refreshPromise = null
 
-  async function call(method, path, body) {
+  async function refreshToken() {
+    if (refreshPromise) return refreshPromise
+    refreshPromise = fetch(`${baseUrl}/api/v1/auth/refresh`, { method: 'POST', credentials: 'include' })
+      .then(r => r.ok)
+      .catch(() => false)
+      .finally(() => { refreshPromise = null })
+    return refreshPromise
+  }
+
+  async function call(method, path, body, _isRetry) {
     let res
     try {
       const opts = {
@@ -142,6 +152,12 @@ function createApi(baseUrl, userId) {
       return { success: false, error: 'Network error — check your connection and try again.', _network: true }
     }
 
+    if (res.status === 401 && !_isRetry) {
+      const refreshed = await refreshToken()
+      if (refreshed) return call(method, path, body, true)
+      showSessionExpired()
+      return { success: false, error: 'Session expired — please reload the page to log in again.', _auth: true }
+    }
     if (res.status === 401 || res.status === 403) {
       showSessionExpired()
       return { success: false, error: 'Session expired — please reload the page to log in again.', _auth: true }
@@ -225,6 +241,12 @@ const CSS = `
   .mk-modal-sub{color:var(--txt-secondary,#999);font-size:13px;margin:0 0 20px;line-height:1.5}
   .mk-modal-issue{display:flex;align-items:flex-start;gap:8px;padding:8px 12px;background:rgba(192,57,43,0.12);border:1px solid rgba(192,57,43,0.25);border-radius:8px;margin-bottom:8px;font-size:13px;color:#e74c3c}
   .mk-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border-light,#333)}
+  @keyframes mk-shake{0%,100%{transform:translateX(0)}15%{transform:translateX(-3px) rotate(-1deg)}30%{transform:translateX(3px) rotate(1deg)}45%{transform:translateX(-2px) rotate(-.5deg)}60%{transform:translateX(2px) rotate(.5deg)}75%{transform:translateX(-1px)}90%{transform:translateX(1px)}}
+  @keyframes mk-pulse-glow{0%,100%{box-shadow:0 0 0 0 rgba(0,183,157,.4)}50%{box-shadow:0 0 10px 3px rgba(0,183,157,.2)}}
+  .mk-attention{position:relative;animation:mk-pulse-glow 2s ease-in-out infinite}
+  .mk-attention:hover{animation:mk-shake .5s ease-in-out}
+  .mk-attention::after{content:attr(data-tooltip);position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--bg-card,#1e1e2e);border:1px solid var(--brand,#00b79d);color:var(--txt-primary,#e0e0e0);padding:5px 12px;border-radius:6px;font-size:11px;font-weight:500;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
+  .mk-attention:hover::after{opacity:1}
 `
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -395,13 +417,16 @@ export default {
       }
 
       const ov = d.overview
+      const noCampaigns = !d.campaigns.length
+      const settingsBtn = h('button', { className: 'mk-btn mk-secondary' + (noCampaigns ? ' mk-attention' : ''), onClick: () => nav('config') }, '⚙ Settings')
+      if (noCampaigns) settingsBtn.setAttribute('data-tooltip', 'Start here to prepare the basic settings')
       const header = h('div', { className: 'mk-row', style: { justifyContent: 'space-between', marginBottom: '20px' } },
         h('div', null,
           h('h2', null, 'Campaigns'),
           h('p', { className: 'mk-sub', style: { margin: 0 } }, `${ov.total_campaigns} campaigns · ${ov.total_pages} pages`),
         ),
         h('div', { className: 'mk-row' },
-          h('button', { className: 'mk-btn mk-secondary', onClick: () => nav('config') }, '⚙ Settings'),
+          settingsBtn,
           h('button', { className: 'mk-btn mk-primary', onClick: () => navToNewCampaign() }, '+ New Campaign'),
         ),
       )
@@ -646,6 +671,27 @@ export default {
           h('h3', null, langLabel(lang) + ' Landing Page'),
           page ? h('span', { className: 'mk-badge mk-badge-active' }, 'Generated') : h('span', { className: 'mk-badge mk-badge-draft' }, 'Not generated'),
         ))
+
+        const ctaUrls = campaign.cta_urls || {}
+        const ctaRow = h('div', { className: 'mk-field', style: { marginTop: '8px', marginBottom: '8px' } })
+        const ctaLabel = h('label', { className: 'mk-label' }, 'CTA Target URL for ' + langLabel(lang))
+        const ctaInput = h('input', {
+          className: 'mk-input',
+          value: ctaUrls[lang] || '',
+          placeholder: campaign.cta_url || 'https://your-site.com/register (uses campaign default)',
+          style: { fontSize: '13px' },
+        })
+        let ctaSaveTimeout = null
+        ctaInput.addEventListener('input', () => {
+          clearTimeout(ctaSaveTimeout)
+          ctaSaveTimeout = setTimeout(async () => {
+            const updated = { ...(campaign.cta_urls || {}), [lang]: ctaInput.value.trim() }
+            const r = await api.put(`/campaigns/${campaign.id}`, { cta_urls: updated })
+            if (r.success) { campaign.cta_urls = updated; toast('CTA URL saved') }
+          }, 800)
+        })
+        ctaRow.append(ctaLabel, ctaInput)
+        card.append(ctaRow)
 
         if (page) {
           const htmlUrl = fileUrl(campaign.id, lang + '/index.html')

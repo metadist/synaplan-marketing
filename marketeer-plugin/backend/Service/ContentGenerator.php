@@ -157,7 +157,7 @@ MODAL;
 
         $logoSection = '';
         if (!empty($logoUrl)) {
-            $logoSection = "\n9. Inside the card, at the very top (above the hero text), add the brand logo: <img src=\"{$logoUrl}\" alt=\"{$brandName} Logo\" style=\"max-height:40px; margin-bottom:1rem; z-index:10; position:relative;\">";
+            $logoSection = "\n11. Inside the card, at the very top (above the hero text), add the brand logo: <img src=\"{$logoUrl}\" alt=\"{$brandName} Logo\" style=\"max-height:40px; margin-bottom:1rem; z-index:10; position:relative;\">";
         }
 
         $customPrompt = $config['landing_page_prompt'] ?? '';
@@ -218,7 +218,7 @@ Landing style settings (these are required):
 
 DESIGN — follow this EXACT layout:
 1. html,body: margin:0, padding:0, box-sizing:border-box. Body: min-height:100vh, display:flex, flex-direction:column, align-items:center, justify-content:center, padding:20px, background:#111, font-family:'Inter',sans-serif, color:#f2f2f2. Do NOT use height:100%.
-2. ONE centered card (class "poster-container"): max-width:468px, width:100%, min-height:600px, background:#f2f2f2, border:8px solid #fff, border-radius:5px, box-shadow:0 20px 50px rgba(0,0,0,0.5), overflow:hidden, display:flex, flex-direction:column, position:relative.
+2. ONE centered card (class "poster-container"): max-width:468px, width:100%, min-height:600px, border-radius:5px, box-shadow:0 20px 50px rgba(0,0,0,0.5), overflow:hidden, display:flex, flex-direction:column, position:relative. Card background MUST use backgroundColor from landingConfig. If the color scheme is dark, use a dark card background and light border; if light, use background:#f2f2f2 and border:8px solid #fff.
 3. Background implementation must support BOTH variants from one configurable structure:
    - Provide a single config object in the page script named "landingConfig" with keys:
      backgroundStyle, backgroundColor, backgroundSecondaryColor, backgroundImageUrl, backgroundImagePosition, backgroundImageSize, backgroundIconUrl, backgroundIconPosition, backgroundIconSizePercent, backgroundIconOpacity, backgroundMotionIntensity, heroTextAlign, backgroundOverlayOpacity.
@@ -248,10 +248,16 @@ DESIGN — follow this EXACT layout:
    - left => align items/start and text-align:left
    - center => align items/center and text-align:center
    - right => align items/end and text-align:right
-6. hero-text: headline in 'Playfair Display' italic 900 (font-size:clamp(2rem,7vw,2.85rem), line-height:1.05, color:#000), subheadline (font-size:1.09rem, color:#222, max-width:340px), thin divider (40px × 3px, background:{{accent_color}}), small tagline (0.81rem, uppercase, letter-spacing:0.2em, color:#555).
-7. footer-block: credits line (0.6rem, uppercase, letter-spacing:0.15em, color:#999) then CTA buttons.
-8. action-btn style: background:{{accent_color}}, color:#fff, border:2px solid darker-accent, padding:0.9rem 2.2rem, font-weight:700, text-transform:uppercase, letter-spacing:0.15em, border-radius:4px, font-size:1rem, text-decoration:none, display:inline-block, box-shadow:0 4px 15px rgba(0,0,0,0.2). CTA button MUST ALWAYS be subtly animated (never static): combine gentle-float (3s ease-in-out infinite) with a very soft glow pulse. Hover may pause float and slightly scale.
-9. Below the card: div.imprint with two links (Privacy → {{privacy_url}}, Imprint → {{imprint_url}}), font-size:0.75rem, color:#666, a:hover color:#fff.{{logo_section}}
+6. READABILITY IS CRITICAL — adapt ALL text colors to the card background:
+   - Determine whether the card/poster background is DARK or LIGHT based on backgroundColor, backgroundSecondaryColor, and the color_scheme setting.
+   - DARK background (dark color scheme, dark backgroundColor, or image/parallax with dark overlay) → headline: #fff, subheadline: #ddd, tagline: #aaa, credits: #888.
+   - LIGHT background (light color scheme, light backgroundColor like #f2f2f2) → headline: #000, subheadline: #222, tagline: #555, credits: #999.
+   - ALWAYS ensure a minimum contrast ratio of ~4.5:1 between text and its immediate background. Never place dark text on a dark background or light text on a light background.
+   - For image/parallax backgrounds, use a semi-transparent overlay OR text-shadow to guarantee readability regardless of image content.
+7. hero-text: headline in 'Roboto Slab' 900 (font-size:clamp(2rem,7vw,2.85rem), line-height:1.05), subheadline (font-size:1.09rem, max-width:340px), thin divider (40px × 3px, background:{{accent_color}}), small tagline (0.81rem, uppercase, letter-spacing:0.2em). Apply the contrast-aware colors from rule 6.
+8. footer-block: credits line (0.6rem, uppercase, letter-spacing:0.15em) then CTA buttons. Use contrast-aware muted color from rule 6.
+9. action-btn style: background:{{accent_color}}, color:#fff, border:2px solid darker-accent, padding:0.9rem 2.2rem, font-weight:700, text-transform:uppercase, letter-spacing:0.15em, border-radius:4px, font-size:1rem, text-decoration:none, display:inline-block, box-shadow:0 4px 15px rgba(0,0,0,0.2). CTA button MUST ALWAYS be subtly animated (never static): combine gentle-float (3s ease-in-out infinite) with a very soft glow pulse. Hover may pause float and slightly scale. Ensure the CTA button text contrasts with the accent color background.
+10. Below the card: div.imprint with two links (Privacy → {{privacy_url}}, Imprint → {{imprint_url}}), font-size:0.75rem, color:#666, a:hover color:#fff.{{logo_section}}
 {{modal_section}}
 COOKIE CONSENT — div#cookiebar AFTER all content, BEFORE </body>:
 - Style: background:#1a1a2e, padding:16px 24px, text-align:center, font-size:13px, color:#fff, display:flex, align-items:center, justify-content:center, flex-wrap:wrap, gap:12px.
@@ -263,7 +269,7 @@ COOKIE CONSENT — div#cookiebar AFTER all content, BEFORE </body>:
 
 TECHNICAL:
 - Self-contained HTML, inline <style>.
-- Google Fonts: Inter (300,400,600,700,900) and Playfair Display (italic 700, italic 900).
+- Google Fonts: Inter (300,400,600,700,900) and Roboto Slab (400,700,900).
 - <meta charset="UTF-8">, <meta viewport>, <title>, <meta description>, OG + Twitter Card tags.
 - Buzzword text: 30-40 topic-relevant terms, duplicated per row for seamless loop.{{cta_buttons}}{{usp_list}}
 

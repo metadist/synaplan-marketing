@@ -601,7 +601,7 @@ class MarketeerController extends AbstractController
 
         $data = json_decode($request->getContent(), true) ?? [];
         $allowedFields = [
-            'title', 'topic', 'languages', 'cta_url', 'status',
+            'title', 'topic', 'languages', 'cta_url', 'cta_urls', 'status',
             'target_audience', 'unique_selling_points', 'platforms',
             'ctas', 'tracking', 'sort_order', 'accent_color', 'modal_content',
             'brand_logo_url', 'color_scheme', 'image_style', 'image_style_notes',
@@ -706,6 +706,11 @@ class MarketeerController extends AbstractController
         $extraInstructions = $data['extra_instructions'] ?? null;
         if (($extraInstructions === null || trim((string) $extraInstructions) === '') && !empty($campaign['style_prompt'])) {
             $extraInstructions = (string) $campaign['style_prompt'];
+        }
+
+        $langCtaUrl = $campaign['cta_urls'][$language] ?? null;
+        if (is_string($langCtaUrl) && trim($langCtaUrl) !== '') {
+            $campaign['cta_url'] = trim($langCtaUrl);
         }
 
         try {
@@ -993,6 +998,11 @@ class MarketeerController extends AbstractController
         $language = $data['language'] ?? $config['default_language'];
         $target = $data['target'] ?? 'html';
         $refinementPrompt = $data['prompt'];
+
+        $langCtaUrl = $campaign['cta_urls'][$language] ?? null;
+        if (is_string($langCtaUrl) && trim($langCtaUrl) !== '') {
+            $campaign['cta_url'] = trim($langCtaUrl);
+        }
 
         $pageKey = $campaignId . '_' . $language;
         $existingPage = $this->pluginData->get($userId, self::PLUGIN_NAME, self::DATA_TYPE_PAGE, $pageKey);
