@@ -273,7 +273,8 @@ function toast(msg, err) {
 }
 
 function langLabel(code) {
-  return LANGS.find(l => l.code === code)?.flag + ' ' + (LANGS.find(l => l.code === code)?.label || code)
+  const lang = LANGS.find(l => l.code === code)
+  return (lang?.flag ?? '') + ' ' + (lang?.label || code)
 }
 
 function isValidUrl(str) {
@@ -723,44 +724,7 @@ export default {
           card.append(h('div', { className: 'mk-row', style: { marginTop: '8px', justifyContent: 'space-between' } },
             h('div', { className: 'mk-row', style: { gap: '6px' } },
               h('button', { className: 'mk-btn mk-secondary', style: { padding: '5px 12px', fontSize: '12px' }, onClick: () => { navigator.clipboard.writeText(htmlUrl); toast('Page URL copied!') } }, '📋 Copy URL'),
-              published
-                ? h('button', {
-                    className: 'mk-btn mk-secondary',
-                    style: { padding: '5px 12px', fontSize: '12px' },
-                    onClick: () => {
-                      navigator.clipboard.writeText(publicUrl)
-                      toast('Public URL copied!')
-                    },
-                  }, '🌍 Copy Public URL')
-                : null,
-              asyncBtn(published ? '🔁 Republish' : '🌍 Publish Public', 'mk-secondary', async () => {
-                const currentSlug = published?.slug || `${campaign.id}-${lang}`.toLowerCase()
-                const typed = prompt('Public slug (a-z, 0-9, hyphen):', currentSlug)
-                if (typed === null) return
-                const slug = typed.trim().toLowerCase()
-                if (!slug) {
-                  toast('Slug is required', true)
-                  return
-                }
-                const d = await api.post(`/campaigns/${campaign.id}/pages/${lang}/publish`, { slug })
-                if (d.success) {
-                  toast('Page published publicly!')
-                  render()
-                } else {
-                  toast(d.error || 'Publish failed', true)
-                }
-              }),
-              published
-                ? asyncBtn('🔒 Unpublish', 'mk-secondary', async () => {
-                  const d = await api.del(`/campaigns/${campaign.id}/pages/${lang}/publish`)
-                  if (d.success) {
-                    toast('Public page removed')
-                    render()
-                  } else {
-                    toast(d.error || 'Unpublish failed', true)
-                  }
-                })
-                : null,
+              /* Public publishing buttons hidden for v1.0.0 - will be re-enabled later */
               asyncBtn('🔄 Regenerate', 'mk-secondary', async () => {
                 const d = await api.post(`/campaigns/${campaign.id}/generate`, { language: lang })
                 if (d.success) { toast('Page regenerated!'); render() } else toast(d.error || 'Failed', true)
@@ -768,18 +732,11 @@ export default {
             ),
             asyncBtn('🗑 Delete', 'mk-danger', async () => {
               if (!confirm('Delete this page?')) return
-              await api.del(`/campaigns/${campaign.id}/pages/${lang}`)
-              toast('Page deleted'); render()
+              const d = await api.del(`/campaigns/${campaign.id}/pages/${lang}`)
+              if (d.success) { toast('Page deleted'); render() } else toast(d.error || 'Delete failed', true)
             }),
           ))
-          if (published) {
-            card.append(
-              h('div', { style: { marginTop: '8px', fontSize: '12px', color: 'var(--txt-secondary)' } },
-                `Public URL: ${publicUrl}`,
-                h('span', { style: { marginLeft: '8px' } }, `Views: ${published.view_count || 0}`),
-              ),
-            )
-          }
+          /* Public URL display hidden for v1.0.0 */
         } else {
           card.append(h('div', { className: 'mk-empty', style: { padding: '24px' } },
             h('p', null, 'No landing page for this language yet.'),
@@ -925,8 +882,8 @@ export default {
           planSection.append(h('div', { className: 'mk-row', style: { justifyContent: 'space-between', marginBottom: '8px' } },
             h('div', { style: { fontWeight: '600', fontSize: '14px' } }, ac.campaign_name || 'Untitled'),
             asyncBtn('🗑', 'mk-danger', async () => {
-              await api.del(`/campaigns/${campaign.id}/ads-campaigns/${ac.id}`)
-              toast('Plan deleted'); render()
+              const d = await api.del(`/campaigns/${campaign.id}/ads-campaigns/${ac.id}`)
+              if (d.success) { toast('Plan deleted'); render() } else toast(d.error || 'Delete failed', true)
             }, { style: { padding: '3px 8px', fontSize: '11px' } }),
           ))
           planSection.append(h('div', { className: 'mk-row', style: { gap: '16px', marginBottom: '8px' } },
@@ -1470,8 +1427,8 @@ export default {
       const actions = h('div', { className: 'mk-row', style: { justifyContent: 'space-between', marginTop: '8px' } })
       actions.append(asyncBtn('Delete Campaign', 'mk-danger', async () => {
         if (!confirm('Delete this campaign and ALL generated assets permanently?')) return
-        await api.del(`/campaigns/${campaign.id}`)
-        toast('Campaign deleted'); nav('dashboard')
+        const d = await api.del(`/campaigns/${campaign.id}`)
+        if (d.success) { toast('Campaign deleted'); nav('dashboard') } else toast(d.error || 'Delete failed', true)
       }))
       actions.append(asyncBtn('Save All Changes', 'mk-primary', async () => {
         const ctas = f.ctas.filter(c => c.label && c.url)
