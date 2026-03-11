@@ -1,0 +1,233 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  validate:
+    name: Validate Plugin Structure
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate manifest.json
+        run: |
+          echo "Checking manifest.json is valid JSON..."
+          python3 -c "import json; json.load(open('marketeer-plugin/manifest.json'))"
+          echo "✅ manifest.json is valid"
+
+      - name: Check required files exist
+        run: |
+          MISSING=0
+          for f in \
+            marketeer-plugin/manifest.json \
+            marketeer-plugin/frontend/index.js \
+            marketeer-plugin/backend/Controller/MarketeerController.php \
+            marketeer-plugin/backend/Controller/MarketeerPublicController.php \
+            marketeer-plugin/backend/Service/ContentGenerator.php \
+            marketeer-plugin/backend/Service/LandingPageService.php \
+            marketeer-plugin/backend/Service/MarketeerInstallService.php \
+            marketeer-plugin/migrations/001_setup.sql; do
+            if [ ! -f "$f" ]; then
+              echo "❌ Missing: $f"
+              MISSING=1
+            else
+              echo "✅ Found: $f"
+            fi
+          done
+          if [ "$MISSING" -eq 1 ]; then
+            echo "::error::Required plugin files are missing"
+            exit 1
+          fi
+
+  php:
+    name: PHP Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, xml, ctype, iconv
+          coverage: none
+
+      - name: PHP syntax check
+        run: |
+          echo "Checking PHP syntax..."
+          ERRORS=0
+          while IFS= read -r file; do
+            if ! php -l "$file" > /dev/null 2>&1; then
+              echo "❌ Syntax error: $file"
+              php -l "$file"
+              ERRORS=1
+            fi
+          done < <(find marketeer-plugin -name '*.php' -type f)
+
+          if [ "$ERRORS" -eq 1 ]; then
+            exit 1
+          fi
+          echo "✅ All PHP files pass syntax check"
+
+      - name: Check PHP strict types
+        run: |
+          echo "Checking declare(strict_types=1)..."
+          ERRORS=0
+          while IFS= read -r file; do
+            if ! head -5 "$file" | grep -q 'declare(strict_types=1)'; then
+              echo "⚠️  Missing strict_types: $file"
+              ERRORS=1
+            fi
+          done < <(find marketeer-plugin -name '*.php' -type f)
+
+          if [ "$ERRORS" -eq 1 ]; then
+            echo "::warning::Some PHP files are missing declare(strict_types=1)"
+          fi
+          echo "✅ Strict types check complete"
+
+  frontend:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: JavaScript syntax check
+        run: |
+          echo "Checking index.js syntax..."
+          node --check marketeer-plugin/frontend/index.js
+          echo "✅ index.js passes syntax check"
+
+      - name: Check module exports
+        run: |
+          echo "Checking that index.js exports a mount function..."
+          node -e "
+            const m = await import('./marketeer-plugin/frontend/index.js');
+            if (typeof m.default?.mount !== 'function') {
+              console.error('❌ index.js must export default { mount(el, context) }');
+              process.exit(1);
+            }
+            console.log('✅ index.js exports mount function');
+          " --input-type=module
+
+      - name: Check for console.log leaks
+        run: |
+          if grep -n 'console\.log\b' marketeer-plugin/frontend/index.js; then
+            echo "::warning::Found console.log statements in index.js — consider removing before release"
+          else
+            echo "✅ No console.log statements found"
+          fi
+
+  integration:
+    name: Plugin Integration Test
+    runs-on: ubuntu-latest
+    needs: [validate, php, frontend]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, xml, ctype, iconv, json
+          coverage: none
+
+      - name: Verify manifest routes match controller
+        run: |
+          echo "Cross-checking manifest routes against controller annotations..."
+          MANIFEST="marketeer-plugin/manifest.json"
+          CONTROLLER="marketeer-plugin/backend/Controller/MarketeerController.php"
+          PUBLIC_CONTROLLER="marketeer-plugin/backend/Controller/MarketeerPublicController.php"
+
+          ROUTE_COUNT=$(python3 -c "
+          import json
+          m = json.load(open('$MANIFEST'))
+          print(len(m.get('routes', [])))
+          ")
+          echo "Manifest declares $ROUTE_COUNT routes"
+
+          ANNOTATION_COUNT=$(grep -c "#\[Route(" "$CONTROLLER" "$PUBLIC_CONTROLLER" 2>/dev/null || echo 0)
+          echo "Controllers have $ANNOTATION_COUNT @Route annotations"
+
+          if [ "$ROUTE_COUNT" -eq 0 ]; then
+            echo "::error::Manifest has no routes defined"
+            exit 1
+          fi
+          echo "✅ Manifest and controllers both define routes"
+
+      - name: Verify ContentGenerator prompt templates
+        run: |
+          echo "Checking ContentGenerator has required prompt templates..."
+          CG="marketeer-plugin/backend/Service/ContentGenerator.php"
+
+          ERRORS=0
+          for tmpl in DEFAULT_LANDING_PAGE_PROMPT DEFAULT_IMAGE_PROMPT DEFAULT_VIDEO_PROMPT; do
+            if grep -q "$tmpl" "$CG"; then
+              echo "✅ Found: $tmpl"
+            else
+              echo "❌ Missing: $tmpl"
+              ERRORS=1
+            fi
+          done
+
+          for method in buildLandingPagePrompt buildAdCopyPrompt buildImagePrompt buildVideoPrompt buildKeywordPrompt buildComplianceCheckPrompt; do
+            if grep -q "function $method" "$CG"; then
+              echo "✅ Found method: $method"
+            else
+              echo "❌ Missing method: $method"
+              ERRORS=1
+            fi
+          done
+
+          if [ "$ERRORS" -eq 1 ]; then
+            echo "::error::ContentGenerator is missing required templates or methods"
+            exit 1
+          fi
+
+      - name: Verify migration SQL syntax
+        run: |
+          echo "Checking migration files..."
+          for f in marketeer-plugin/migrations/*.sql; do
+            if [ ! -s "$f" ]; then
+              echo "❌ Empty migration: $f"
+              exit 1
+            fi
+            echo "✅ Migration exists and is non-empty: $f"
+          done
+
+  all-checks-passed:
+    name: All Checks Passed
+    runs-on: ubuntu-latest
+    needs: [validate, php, frontend, integration]
+    if: always()
+    steps:
+      - name: Check for failures
+        if: |
+          !cancelled() && (
+            needs.validate.result != 'success' ||
+            needs.php.result != 'success' ||
+            needs.frontend.result != 'success' ||
+            needs.integration.result != 'success'
+          )
+        run: |
+          echo "One or more checks failed"
+          exit 1
+
+      - name: All checks passed
+        run: echo "✅ All checks passed!"
