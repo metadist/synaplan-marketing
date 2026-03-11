@@ -653,10 +653,14 @@ PROMPT;
     ): array {
         $langName = self::LANGUAGE_NAMES[$language] ?? $language;
         $brandName = $config['brand_name'] ?? 'Synaplan';
-        $ctaUrl = $campaign['cta_url'] ?? $config['cta_url'] ?? 'https://web.synaplan.com';
+        $landingPageUrl = "LANDING_PAGE_URL/index_{$language}.html";
 
         $systemPrompt = <<<PROMPT
 You are a Google Ads campaign strategist. Generate a complete campaign structure.
+
+IMPORTANT: All final_url values and sitelink URLs MUST use the placeholder landing page URL "{$landingPageUrl}".
+The advertiser will replace this placeholder with the real published landing page URL before importing into Google Ads.
+Do NOT use any other URL. Do NOT invent domain names.
 
 Output as valid JSON only (no markdown):
 {
@@ -679,7 +683,7 @@ Output as valid JSON only (no markdown):
         {
           "headlines": ["h1 (max 30 chars)", "h2", "h3"],
           "descriptions": ["desc1 (max 90 chars)", "desc2"],
-          "final_url": "{$ctaUrl}",
+          "final_url": "{$landingPageUrl}",
           "display_path": ["path1", "path2"]
         }
       ]
@@ -687,7 +691,7 @@ Output as valid JSON only (no markdown):
   ],
   "campaign_negative_keywords": ["free trial competitor", "jobs"],
   "extensions_suggestions": {
-    "sitelinks": [{"title": "...", "url": "...", "description": "..."}],
+    "sitelinks": [{"title": "...", "url": "{$landingPageUrl}", "description": "..."}],
     "callouts": ["callout1", "callout2"],
     "structured_snippets": {"header": "Types", "values": ["val1", "val2"]}
   },
@@ -703,7 +707,7 @@ PROMPT;
         $userMessage .= "Product: {$brandName}\n";
         $userMessage .= "Campaign: {$campaign['title']}\n";
         $userMessage .= "Angle: {$campaign['topic']}\n";
-        $userMessage .= "Landing page: {$ctaUrl}\n";
+        $userMessage .= "Landing page (placeholder — will be replaced before import): {$landingPageUrl}\n";
         $userMessage .= "Language: {$langName}\n";
 
         if (!empty($campaign['target_audience'])) {
