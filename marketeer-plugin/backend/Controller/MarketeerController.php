@@ -1661,6 +1661,7 @@ class MarketeerController extends AbstractController
             $structure['model'] = $response['model'] ?? null;
             $structure['provider'] = $response['provider'] ?? null;
 
+            $this->adsPlannerService->deleteForLanguage($userId, $campaignId, $language);
             $id = $this->adsPlannerService->create($userId, $campaignId, $structure);
 
             $this->logger->info('Marketeer Google Ads campaign generated', [

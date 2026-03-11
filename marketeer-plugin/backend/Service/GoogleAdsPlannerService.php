@@ -126,6 +126,24 @@ final readonly class GoogleAdsPlannerService
     }
 
     /**
+     * Delete all ads campaigns for a specific language within a marketing campaign.
+     */
+    public function deleteForLanguage(int $userId, string $campaignSlug, string $language): int
+    {
+        $all = $this->listForCampaign($userId, $campaignSlug);
+        $deleted = 0;
+
+        foreach ($all as $key => $data) {
+            if (($data['language'] ?? '') === $language) {
+                $this->pluginData->delete($userId, self::PLUGIN_NAME, self::DATA_TYPE, $key);
+                ++$deleted;
+            }
+        }
+
+        return $deleted;
+    }
+
+    /**
      * Delete all ads campaigns for a marketing campaign.
      */
     public function deleteAllForCampaign(int $userId, string $campaignSlug): int
