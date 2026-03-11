@@ -9,6 +9,7 @@ use App\Entity\PluginData;
 use App\Entity\User;
 use App\Repository\ConfigRepository;
 use App\Repository\PluginDataRepository;
+use App\Service\TokenService;
 use App\Service\ModelConfigService;
 use App\Service\PluginDataService;
 use App\Service\Exception\RateLimitExceededException;
@@ -52,6 +53,7 @@ class MarketeerController extends AbstractController
         private GoogleAdsPlannerService $adsPlannerService,
         private ComplianceService $complianceService,
         private ConfigRepository $configRepository,
+        private TokenService $tokenService,
         private RateLimitService $rateLimitService,
         private LoggerInterface $logger,
         #[Autowire('%app.upload_dir%')] private string $uploadDir,
@@ -2262,8 +2264,16 @@ class MarketeerController extends AbstractController
         int $userId,
         string $campaignId,
         string $filePath,
+        Request $request,
         #[CurrentUser] ?User $user,
     ): Response {
+        $refreshedAccessToken = null;
+        if (!$this->canAccessPlugin($user, $userId)) {
+            $refreshResult = $this->tryRefreshUserSession($request, $userId);
+            $user = $refreshResult['user'] ?? null;
+            $refreshedAccessToken = $refreshResult['access_token'] ?? null;
+        }
+
         if (!$this->canAccessPlugin($user, $userId)) {
             return $this->json(['success' => false, 'error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
         }
@@ -2281,10 +2291,16 @@ class MarketeerController extends AbstractController
         $ext = strtolower(pathinfo($realFile, PATHINFO_EXTENSION));
         $mime = $mimeTypes[$ext] ?? 'application/octet-stream';
 
-        return new Response(file_get_contents($realFile), 200, [
+        $response = new Response(file_get_contents($realFile), 200, [
             'Content-Type' => $mime,
             'Cache-Control' => 'public, max-age=3600',
         ]);
+
+        if (is_string($refreshedAccessToken) && $refreshedAccessToken !== '') {
+            $response->headers->setCookie($this->tokenService->createAccessCookie($refreshedAccessToken));
+        }
+
+        return $response;
     }
 
     // =========================================================================
@@ -2302,6 +2318,28 @@ class MarketeerController extends AbstractController
         }
 
         return $this->configRepository->getValue($userId, self::CONFIG_GROUP, 'enabled') === '1';
+    }
+
+    /**
+     * @return array{user: ?User, access_token: ?string}
+     */
+    private function tryRefreshUserSession(Request $request, int $expectedUserId): array
+    {
+        $refreshToken = $request->cookies->get(TokenService::REFRESH_COOKIE);
+        if (!is_string($refreshToken) || $refreshToken === '') {
+            return ['user' => null, 'access_token' => null];
+        }
+
+        $result = $this->tokenService->refreshTokens($refreshToken);
+        $user = $result['user'] ?? null;
+        if (!$user instanceof User || $user->getId() !== $expectedUserId) {
+            return ['user' => null, 'access_token' => null];
+        }
+
+        return [
+            'user' => $user,
+            'access_token' => is_string($result['access_token'] ?? null) ? $result['access_token'] : null,
+        ];
     }
 
     /**

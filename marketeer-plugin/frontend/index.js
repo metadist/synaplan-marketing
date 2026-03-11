@@ -335,6 +335,7 @@ export default {
   mount(el, context) {
     const api = createApi(context.apiBaseUrl, context.userId)
     let state = { page: 'dashboard', campaignId: null, tab: 'pages' }
+    let pageGenerationQueue = Promise.resolve()
 
     const style = document.createElement('style')
     style.textContent = CSS
@@ -348,6 +349,12 @@ export default {
     function nav(page, opts = {}) {
       Object.assign(state, { page, ...opts })
       render()
+    }
+
+    async function queuePageGeneration(task) {
+      const run = pageGenerationQueue.then(task, task)
+      pageGenerationQueue = run.catch(() => {})
+      return run
     }
 
     async function navToNewCampaign() {
@@ -708,6 +715,38 @@ export default {
       const pages = data.pages || {}
       const publishedPages = data.published_pages || {}
       const langs = campaign.languages || ['en']
+      const generatedCount = langs.filter(lang => !!pages[lang]).length
+
+      ct.append(h('div', { className: 'mk-row', style: { justifyContent: 'space-between', marginBottom: '16px' } },
+        h('h3', null, 'Landing Pages'),
+        h('div', { className: 'mk-row', style: { gap: '8px', alignItems: 'center' } },
+          generatedCount === langs.length
+            ? h('span', { className: 'mk-badge mk-badge-active' }, `${generatedCount}/${langs.length} languages`)
+            : generatedCount > 0
+              ? h('span', { className: 'mk-badge mk-badge-paused' }, `${generatedCount}/${langs.length} languages`)
+              : h('span', { className: 'mk-badge mk-badge-draft' }, `0/${langs.length} languages`),
+          asyncBtn(
+            generatedCount > 0 ? `🔄 Regenerate all ${langs.length} languages` : `✨ Generate all ${langs.length} languages`,
+            generatedCount > 0 ? 'mk-secondary' : 'mk-primary',
+            async (btn) => {
+              let ok = 0
+              const failed = []
+              for (let j = 0; j < langs.length; j++) {
+                const lang = langs[j]
+                btn.innerHTML = `<span class="mk-spinner"></span> ${j + 1}/${langs.length}: ${langLabel(lang)}...`
+                const d = await queuePageGeneration(() => api.post(`/campaigns/${campaign.id}/generate`, { language: lang }))
+                if (d.success) ok++
+                else failed.push(`${langLabel(lang)}: ${d.error || 'Failed'}`)
+              }
+              if (ok > 0) {
+                toast(`${ok}/${langs.length} landing pages generated!`)
+                render()
+              }
+              failed.forEach(msg => toast(msg, true))
+            },
+          ),
+        ),
+      ))
 
       langs.forEach(lang => {
         const page = pages[lang]
@@ -770,8 +809,8 @@ export default {
               h('button', { className: 'mk-btn mk-secondary', style: { padding: '5px 12px', fontSize: '12px' }, onClick: () => { navigator.clipboard.writeText(htmlUrl); toast('Page URL copied!') } }, '📋 Copy URL'),
               /* Public publishing buttons hidden for v1.0.0 - will be re-enabled later */
               asyncBtn('🔄 Regenerate', 'mk-secondary', async () => {
-                const d = await api.post(`/campaigns/${campaign.id}/generate`, { language: lang })
-                if (d.success) { toast('Page regenerated!'); render() } else toast(d.error || 'Failed', true)
+                const d = await queuePageGeneration(() => api.post(`/campaigns/${campaign.id}/generate`, { language: lang }))
+                if (d.success) { toast(`${langLabel(lang)} page regenerated!`); render() } else toast(`${langLabel(lang)}: ${d.error || 'Failed'}`, true)
               }),
             ),
             asyncBtn('🗑 Delete', 'mk-danger', async () => {
@@ -785,8 +824,8 @@ export default {
           card.append(h('div', { className: 'mk-empty', style: { padding: '24px' } },
             h('p', null, 'No landing page for this language yet.'),
             asyncBtn('✨ Generate Landing Page', 'mk-primary', async () => {
-              const d = await api.post(`/campaigns/${campaign.id}/generate`, { language: lang })
-              if (d.success) { toast('Page generated!'); render() } else toast(d.error || 'Failed', true)
+              const d = await queuePageGeneration(() => api.post(`/campaigns/${campaign.id}/generate`, { language: lang }))
+              if (d.success) { toast(`${langLabel(lang)} page generated!`); render() } else toast(`${langLabel(lang)}: ${d.error || 'Failed'}`, true)
             }),
           ))
         }
