@@ -60,6 +60,52 @@ final readonly class ContentGenerator
         $accent = $campaign['accent_color'] ?? $config['default_accent_color'] ?? '#00b79d';
         $logoUrl = $campaign['brand_logo_url'] ?? $config['default_brand_logo_url'] ?? '';
         $colorScheme = $campaign['color_scheme'] ?? $config['default_color_scheme'] ?? 'dark backgrounds (#111) with vibrant accent';
+        $backgroundStyle = $this->normalizeEnum(
+            $campaign['background_style'] ?? $config['default_background_style'] ?? 'parallax',
+            ['solid', 'parallax', 'image_cover', 'icon_fixed', 'icon_floating', 'glass_3d_ball'],
+            'parallax',
+        );
+        $backgroundColor = trim((string) ($campaign['background_color'] ?? $config['default_background_color'] ?? '#111111'));
+        $backgroundSecondaryColor = trim((string) ($campaign['background_secondary_color'] ?? $config['default_background_secondary_color'] ?? '#1f2937'));
+        $backgroundImageUrl = trim((string) ($campaign['background_image_url'] ?? $config['default_background_image_url'] ?? ''));
+        $backgroundImagePosition = $this->normalizeEnum(
+            $campaign['background_image_position'] ?? $config['default_background_image_position'] ?? 'center center',
+            ['center center', 'center top', 'center bottom', 'left center', 'right center'],
+            'center center',
+        );
+        $backgroundImageSize = $this->normalizeEnum(
+            $campaign['background_image_size'] ?? $config['default_background_image_size'] ?? 'cover',
+            ['cover', 'contain', '10%', '15%', '20%', '25%', '30%', '35%', '40%', '50%', '60%', '70%', '80%'],
+            'cover',
+        );
+        $backgroundIconUrl = trim((string) ($campaign['background_icon_url'] ?? $config['default_background_icon_url'] ?? ''));
+        $backgroundIconPosition = $this->normalizeEnum(
+            $campaign['background_icon_position'] ?? $config['default_background_icon_position'] ?? 'center center',
+            ['center center', 'center top', 'center bottom', 'left center', 'right center', 'left top', 'right top', 'left bottom', 'right bottom'],
+            'center center',
+        );
+        $backgroundIconSizePercent = $this->normalizePercent(
+            $campaign['background_icon_size_percent'] ?? $config['default_background_icon_size_percent'] ?? 20,
+            20.0,
+        );
+        $backgroundIconOpacity = $this->normalizeOpacity(
+            $campaign['background_icon_opacity'] ?? $config['default_background_icon_opacity'] ?? 0.35,
+            0.35,
+        );
+        $backgroundMotionIntensity = $this->normalizeEnum(
+            $campaign['background_motion_intensity'] ?? $config['default_background_motion_intensity'] ?? 'medium',
+            ['subtle', 'medium', 'wild'],
+            'medium',
+        );
+        $heroTextAlign = $this->normalizeEnum(
+            $campaign['hero_text_align'] ?? $config['default_hero_text_align'] ?? 'center',
+            ['left', 'center', 'right'],
+            'center',
+        );
+        $backgroundOverlayOpacity = $this->normalizeOpacity(
+            $campaign['background_overlay_opacity'] ?? $config['default_background_overlay_opacity'] ?? 0.48,
+            0.48,
+        );
 
         $ctaButtons = '';
         if (!empty($campaign['ctas'])) {
@@ -123,6 +169,19 @@ MODAL;
             '{{brand_name}}' => $brandName,
             '{{accent_color}}' => $accent,
             '{{color_scheme}}' => $colorScheme,
+            '{{background_style}}' => $backgroundStyle,
+            '{{background_color}}' => $backgroundColor,
+            '{{background_secondary_color}}' => $backgroundSecondaryColor,
+            '{{background_image_url}}' => $backgroundImageUrl,
+            '{{background_image_position}}' => $backgroundImagePosition,
+            '{{background_image_size}}' => $backgroundImageSize,
+            '{{background_icon_url}}' => $backgroundIconUrl,
+            '{{background_icon_position}}' => $backgroundIconPosition,
+            '{{background_icon_size_percent}}' => $backgroundIconSizePercent,
+            '{{background_icon_opacity}}' => $backgroundIconOpacity,
+            '{{background_motion_intensity}}' => $backgroundMotionIntensity,
+            '{{hero_text_align}}' => $heroTextAlign,
+            '{{background_overlay_opacity}}' => $backgroundOverlayOpacity,
             '{{privacy_url}}' => $privacyUrl,
             '{{imprint_url}}' => $imprintUrl,
             '{{logo_section}}' => $logoSection,
@@ -142,15 +201,57 @@ MODAL;
     private const DEFAULT_LANDING_PAGE_PROMPT = <<<'PROMPT'
 Generate a single-file HTML landing page. Language: {{language}}. Brand: {{brand_name}}. Accent color: {{accent_color}}. Color scheme: {{color_scheme}}.
 
+Landing style settings (these are required):
+- background_style: {{background_style}}  (allowed values: "solid", "parallax", "image_cover", "icon_fixed", "icon_floating", "glass_3d_ball")
+- background_color: {{background_color}}
+- background_secondary_color: {{background_secondary_color}}
+- background_image_url: {{background_image_url}}  (optional, but if present it MUST be easy to swap in one place)
+- background_image_position: {{background_image_position}} (allowed: center center, center top, center bottom, left center, right center)
+- background_image_size: {{background_image_size}} (allowed: cover, contain, or percentage such as 20%)
+- background_icon_url: {{background_icon_url}} (optional icon/small image)
+- background_icon_position: {{background_icon_position}} (allowed: center center, center top, center bottom, left/right center, corners)
+- background_icon_size_percent: {{background_icon_size_percent}} (e.g. 20 means icon takes 20% of card width)
+- background_icon_opacity: {{background_icon_opacity}} (0-1)
+- background_motion_intensity: {{background_motion_intensity}} (subtle, medium, wild)
+- hero_text_align: {{hero_text_align}} (allowed: left, center, right)
+- background_overlay_opacity: {{background_overlay_opacity}} (0-1)
+
 DESIGN — follow this EXACT layout:
 1. html,body: margin:0, padding:0, box-sizing:border-box. Body: min-height:100vh, display:flex, flex-direction:column, align-items:center, justify-content:center, padding:20px, background:#111, font-family:'Inter',sans-serif, color:#f2f2f2. Do NOT use height:100%.
 2. ONE centered card (class "poster-container"): max-width:468px, width:100%, min-height:600px, background:#f2f2f2, border:8px solid #fff, border-radius:5px, box-shadow:0 20px 50px rgba(0,0,0,0.5), overflow:hidden, display:flex, flex-direction:column, position:relative.
-3. Background layer inside card (class "buzzword-bg"): position:absolute, inset:0, z-index:1, overflow:hidden, pointer-events:none. Contains 6 div rows (.buzz-row) with scrolling tech buzzwords. Each row: position:absolute, white-space:nowrap, font-weight:800, text-transform:uppercase, letter-spacing:0.05em. Text colors: #fff, #e6e6e6, #d9d9d9. Each row at different top% (5,18,34,52,68,82), different font-sizes (1.2-2.4rem), animated with @keyframes scroll-left / scroll-right at 22-35s. Duplicate the text in each row for seamless loop.
-4. Content layer (class "poster-content"): position:relative, z-index:10, flex:1, display:flex, flex-direction:column, justify-content:center, align-items:center, padding:2.5rem, text-align:center. Contains hero-text div (flex:1 centered) and footer-block div (flex-shrink:0).
-5. hero-text: headline in 'Playfair Display' italic 900 (font-size:clamp(2rem,7vw,2.85rem), line-height:1.05, color:#000), subheadline (font-size:1.09rem, color:#222, max-width:340px), thin divider (40px × 3px, background:{{accent_color}}), small tagline (0.81rem, uppercase, letter-spacing:0.2em, color:#555).
-6. footer-block: credits line (0.6rem, uppercase, letter-spacing:0.15em, color:#999) then CTA buttons.
-7. action-btn style: background:{{accent_color}}, color:#fff, border:2px solid darker-accent, padding:0.9rem 2.2rem, font-weight:700, text-transform:uppercase, letter-spacing:0.15em, border-radius:4px, font-size:1rem, text-decoration:none, display:inline-block, animation:gentle-float 3s ease-in-out infinite, box-shadow:0 4px 15px rgba(0,0,0,0.2). @keyframes gentle-float: 0%,100% translateY(0), 50% translateY(-5px). Hover: animation paused, transform:scale(1.05).
-8. Below the card: div.imprint with two links (Privacy → {{privacy_url}}, Imprint → {{imprint_url}}), font-size:0.75rem, color:#666, a:hover color:#fff.{{logo_section}}
+3. Background implementation must support BOTH variants from one configurable structure:
+   - Provide a single config object in the page script named "landingConfig" with keys:
+     backgroundStyle, backgroundColor, backgroundSecondaryColor, backgroundImageUrl, backgroundImagePosition, backgroundImageSize, backgroundIconUrl, backgroundIconPosition, backgroundIconSizePercent, backgroundIconOpacity, backgroundMotionIntensity, heroTextAlign, backgroundOverlayOpacity.
+   - backgroundStyle MUST be initialized with "{{background_style}}".
+   - backgroundColor MUST be initialized with "{{background_color}}".
+   - backgroundSecondaryColor MUST be initialized with "{{background_secondary_color}}".
+   - backgroundImageUrl MUST be initialized with "{{background_image_url}}".
+   - backgroundImagePosition MUST be initialized with "{{background_image_position}}".
+   - backgroundImageSize MUST be initialized with "{{background_image_size}}".
+   - backgroundIconUrl MUST be initialized with "{{background_icon_url}}".
+   - backgroundIconPosition MUST be initialized with "{{background_icon_position}}".
+   - backgroundIconSizePercent MUST be initialized with {{background_icon_size_percent}}.
+   - backgroundIconOpacity MUST be initialized with {{background_icon_opacity}}.
+   - backgroundMotionIntensity MUST be initialized with "{{background_motion_intensity}}".
+   - heroTextAlign MUST be initialized with "{{hero_text_align}}".
+   - backgroundOverlayOpacity MUST be initialized with {{background_overlay_opacity}}.
+   - Use CSS custom properties set from landingConfig so replacing image/icon requires changing only URLs in one place.
+4. Background visual variants:
+   - SOLID variant: clean static or subtle gradient background using backgroundColor/backgroundSecondaryColor.
+   - PARALLAX variant (inspired by scrolling buzzword rows): 6 horizontal rows with duplicated buzzwords, alternating scroll-left/scroll-right animations, varied sizes and light neutral colors.
+   - IMAGE_COVER variant (inspired by a poster background graphic): full-card image layer with configurable size + position, optional contrast filter, and a dark gradient overlay using backgroundOverlayOpacity for readability.
+   - ICON_FIXED variant: one icon/small image on top of solid/gradient background, with configurable position, size percent, and opacity.
+   - ICON_FLOATING variant: same icon but animated (bounce, drift, rotate) in the background. Motion amplitude/speed must react to backgroundMotionIntensity.
+   - GLASS_3D_BALL variant: playful pseudo-3D scene (CSS only, no heavy libs) with a ball bouncing inside a box/cube frame in the background while foreground text sits on a translucent "glass top/pane". Keep this lightweight and readable.
+   - Show only the selected variant based on landingConfig.backgroundStyle.
+5. Content layer (class "poster-content"): position:relative, z-index:10, flex:1, display:flex, flex-direction:column, justify-content:center, padding:2.5rem. Text alignment and horizontal placement MUST follow heroTextAlign:
+   - left => align items/start and text-align:left
+   - center => align items/center and text-align:center
+   - right => align items/end and text-align:right
+6. hero-text: headline in 'Playfair Display' italic 900 (font-size:clamp(2rem,7vw,2.85rem), line-height:1.05, color:#000), subheadline (font-size:1.09rem, color:#222, max-width:340px), thin divider (40px × 3px, background:{{accent_color}}), small tagline (0.81rem, uppercase, letter-spacing:0.2em, color:#555).
+7. footer-block: credits line (0.6rem, uppercase, letter-spacing:0.15em, color:#999) then CTA buttons.
+8. action-btn style: background:{{accent_color}}, color:#fff, border:2px solid darker-accent, padding:0.9rem 2.2rem, font-weight:700, text-transform:uppercase, letter-spacing:0.15em, border-radius:4px, font-size:1rem, text-decoration:none, display:inline-block, box-shadow:0 4px 15px rgba(0,0,0,0.2). CTA button MUST ALWAYS be subtly animated (never static): combine gentle-float (3s ease-in-out infinite) with a very soft glow pulse. Hover may pause float and slightly scale.
+9. Below the card: div.imprint with two links (Privacy → {{privacy_url}}, Imprint → {{imprint_url}}), font-size:0.75rem, color:#666, a:hover color:#fff.{{logo_section}}
 {{modal_section}}
 COOKIE CONSENT — div#cookiebar AFTER all content, BEFORE </body>:
 - Style: background:#1a1a2e, padding:16px 24px, text-align:center, font-size:13px, color:#fff, display:flex, align-items:center, justify-content:center, flex-wrap:wrap, gap:12px.
@@ -169,6 +270,40 @@ TECHNICAL:
 Output ONLY the complete HTML. No markdown. Start with <!DOCTYPE html>.
 PROMPT;
 
+    private function normalizeEnum(mixed $value, array $allowed, string $fallback): string
+    {
+        $normalized = strtolower(trim((string) $value));
+        if (in_array($normalized, $allowed, true)) {
+            return $normalized;
+        }
+
+        return $fallback;
+    }
+
+    private function normalizeOpacity(mixed $value, float $fallback): string
+    {
+        if (!is_numeric($value)) {
+            return number_format($fallback, 2, '.', '');
+        }
+
+        $opacity = (float) $value;
+        $opacity = max(0.0, min(1.0, $opacity));
+
+        return number_format($opacity, 2, '.', '');
+    }
+
+    private function normalizePercent(mixed $value, float $fallback): string
+    {
+        if (!is_numeric($value)) {
+            return number_format($fallback, 0, '.', '');
+        }
+
+        $percent = (float) $value;
+        $percent = max(5.0, min(95.0, $percent));
+
+        return number_format($percent, 0, '.', '');
+    }
+
     /**
      * @param array<string, mixed> $campaign
      */
@@ -179,6 +314,15 @@ PROMPT;
         $msg .= "Title: {$campaign['title']}\n";
         $msg .= "Topic/Angle: {$campaign['topic']}\n";
         $msg .= "Language: {$langName}\n";
+        $msg .= "Background style: " . ($campaign['background_style'] ?? 'parallax') . "\n";
+        $msg .= "Background color: " . ($campaign['background_color'] ?? '#111111') . "\n";
+        $msg .= "Hero text align: " . ($campaign['hero_text_align'] ?? 'center') . "\n";
+        if (!empty($campaign['background_image_url'])) {
+            $msg .= "Background image URL: {$campaign['background_image_url']}\n";
+        }
+        if (!empty($campaign['background_icon_url'])) {
+            $msg .= "Background icon URL: {$campaign['background_icon_url']}\n";
+        }
 
         if ($extraInstructions) {
             $msg .= "\nAdditional instructions: {$extraInstructions}\n";

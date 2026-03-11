@@ -41,6 +41,72 @@ const IMG_STYLES = [
   { id: 'bold-graphic', label: 'Bold Graphic', desc: 'High contrast, punchy colors, poster style' },
 ]
 
+const BG_STYLES = ['solid', 'parallax', 'image_cover', 'icon_fixed', 'icon_floating', 'glass_3d_ball']
+const BG_POSITIONS = ['center center', 'center top', 'center bottom', 'left center', 'right center', 'left top', 'right top', 'left bottom', 'right bottom']
+const BG_IMAGE_SIZES = ['cover', 'contain', '10%', '15%', '20%', '25%', '30%', '35%', '40%', '50%', '60%', '70%', '80%']
+const BG_MOTION_LEVELS = ['subtle', 'medium', 'wild']
+const TEXT_ALIGNS = ['left', 'center', 'right']
+
+const STYLE_PRESETS = {
+  parallax: {
+    id: 'parallax',
+    emoji: '🌊',
+    label: 'Parallax Buzzwords',
+    summary: 'Animated keyword rows, strong motion, high energy',
+    style_prompt: 'Use layered parallax buzzword rows with smooth motion and strong visual hierarchy. Keep the hero text highly readable and conversion-driven.',
+    values: { background_style: 'parallax', background_color: '#111111', background_secondary_color: '#1f2937', hero_text_align: 'center', background_motion_intensity: 'medium', background_overlay_opacity: '0.48' },
+  },
+  image_cover: {
+    id: 'image_cover',
+    emoji: '🖼',
+    label: 'Image Cover Hero',
+    summary: 'Full-cover image background with dark readable overlay',
+    style_prompt: 'Create a cinematic hero with a full-cover background image and a subtle dark overlay. Keep content readable and centered around one clear CTA.',
+    values: { background_style: 'image_cover', background_color: '#10131a', background_secondary_color: '#1b2230', background_image_position: 'center center', background_image_size: 'cover', hero_text_align: 'center', background_overlay_opacity: '0.58' },
+  },
+  icon_fixed: {
+    id: 'icon_fixed',
+    emoji: '📌',
+    label: 'Static Icon Backdrop',
+    summary: 'Minimal clean background with one fixed icon/logo',
+    style_prompt: 'Use a minimal static background with one decorative icon/shape in the back. The icon should support the topic but never distract from the CTA.',
+    values: { background_style: 'icon_fixed', background_color: '#0f1116', background_secondary_color: '#1a2030', background_icon_position: 'right bottom', background_icon_size_percent: '20', background_icon_opacity: '0.30', hero_text_align: 'left', background_overlay_opacity: '0.44' },
+  },
+  icon_floating: {
+    id: 'icon_floating',
+    emoji: '🎈',
+    label: 'Bouncing Logo/Icon',
+    summary: 'Playful floating icon motion in the background',
+    style_prompt: 'Use a playful floating icon in the background with gentle motion. Keep animation subtle enough for business pages and maintain excellent readability.',
+    values: { background_style: 'icon_floating', background_color: '#0d1218', background_secondary_color: '#1a2733', background_icon_position: 'center center', background_icon_size_percent: '20', background_icon_opacity: '0.34', background_motion_intensity: 'medium', hero_text_align: 'center', background_overlay_opacity: '0.46' },
+  },
+  glass_3d_ball: {
+    id: 'glass_3d_ball',
+    emoji: '🔮',
+    label: 'Glass 3D Ball',
+    summary: 'Pseudo-3D bouncing ball under glass UI layer',
+    style_prompt: 'Create a modern glassmorphism hero with a pseudo-3D bouncing ball scene in the background. Keep text sharp, premium, and easy to read.',
+    values: { background_style: 'glass_3d_ball', background_color: '#0d1117', background_secondary_color: '#202b3a', hero_text_align: 'center', background_motion_intensity: 'medium', background_overlay_opacity: '0.42' },
+  },
+  solid: {
+    id: 'solid',
+    emoji: '⚫',
+    label: 'Solid Premium',
+    summary: 'Calm static gradient, minimal and highly readable',
+    style_prompt: 'Use a clean premium layout with a calm static background and strong typography contrast. Keep it readable and conversion-focused.',
+    values: { background_style: 'solid', background_color: '#111111', background_secondary_color: '#2b2b2b', hero_text_align: 'center', background_overlay_opacity: '0.38' },
+  },
+}
+
+function getStylePreset(id) {
+  return STYLE_PRESETS[id] || STYLE_PRESETS.parallax
+}
+
+function getPresetPayload(id) {
+  const preset = getStylePreset(id)
+  return { ...preset.values, style_prompt: preset.style_prompt }
+}
+
 // ─── API Client ──────────────────────────────────────────────────────────────
 
 function showSessionExpired() {
@@ -135,6 +201,12 @@ const CSS = `
   .mk-chip{padding:4px 12px;border-radius:16px;font-size:12px;border:1px solid var(--border-light,#444);cursor:pointer;transition:all .15s;user-select:none;color:var(--txt-primary,#e0e0e0)}
   .mk-chip.on{background:var(--brand,#00b79d);color:#fff;border-color:var(--brand,#00b79d)}
   .mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+  .mk-preset-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+  .mk-preset{border:1px solid var(--border-light,#444);border-radius:10px;padding:10px 12px;background:var(--bg-input,#151520);cursor:pointer;transition:border-color .15s,transform .15s}
+  .mk-preset:hover{border-color:var(--brand,#00b79d);transform:translateY(-1px)}
+  .mk-preset.on{border-color:var(--brand,#00b79d);box-shadow:0 0 0 1px rgba(0,183,157,.35) inset}
+  .mk-preset-title{font-size:13px;font-weight:700;margin-bottom:4px}
+  .mk-preset-sub{font-size:11px;color:var(--txt-secondary,#999);line-height:1.4}
   .mk-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;background:var(--bg-chip,#333);margin:0 4px 4px 0}
   .mk-pre{background:var(--bg-input,#151520);border:1px solid var(--border-light,#444);border-radius:8px;padding:14px;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow:auto;line-height:1.6;font-family:ui-monospace,monospace}
   .mk-preview{border:1px solid var(--border-light,#444);border-radius:8px;overflow:hidden;background:#fff}
@@ -371,7 +443,18 @@ export default {
     // ── New Campaign ─────────────────────────────────────────────────────
 
     function renderNewCampaign() {
-      const form = { slug: '', title: '', topic: '', audience: '', usps: '', languages: ['en'], platforms: ['google'], ctas: [{ type: 'register', label: 'Start Free Trial', url: '' }] }
+      const form = {
+        slug: '',
+        title: '',
+        topic: '',
+        audience: '',
+        usps: '',
+        target_url: '',
+        style_preset: 'parallax',
+        languages: ['en'],
+        platforms: ['google'],
+        ctas: [{ type: 'register', label: 'Start Free Trial', url: '' }],
+      }
 
       root.append(
         h('button', { className: 'mk-back', onClick: () => nav('dashboard') }, '← Back to campaigns'),
@@ -388,9 +471,29 @@ export default {
           field('Campaign Name', 'text', form.slug, v => form.slug = v, 'e.g. synaplan-launch'),
           field('Headline', 'text', form.title, v => form.title = v, 'e.g. Synaplan — Your AI Knowledge Hub'),
           field('Topic / Angle', 'textarea', form.topic, v => form.topic = v, 'Describe what this campaign promotes and the key angle...'),
+          field('Primary Target URL', 'text', form.target_url, v => form.target_url = v, 'https://your-site.com/offer'),
           field('Target Audience', 'text', form.audience, v => form.audience = v, 'e.g. CTOs, developers, knowledge workers'),
           field('Unique Selling Points', 'textarea', form.usps, v => form.usps = v, 'One per line'),
         )
+
+        container.append(h('div', { className: 'mk-field' },
+          h('label', { className: 'mk-label' }, 'Landing Design Preset (Quick Start)'),
+          h('div', { className: 'mk-preset-grid' },
+            ...Object.values(STYLE_PRESETS).map(preset => {
+              const selected = form.style_preset === preset.id
+              const card = h('div', {
+                className: `mk-preset${selected ? ' on' : ''}`,
+                onClick: () => { form.style_preset = preset.id; renderStep1() },
+              },
+              h('div', { className: 'mk-preset-title' }, `${preset.emoji} ${preset.label}`),
+              h('div', { className: 'mk-preset-sub' }, preset.summary))
+              return card
+            }),
+          ),
+          h('div', { style: { fontSize: '11px', color: 'var(--txt-secondary)', marginTop: '8px' } },
+            'Only campaign text + URL are needed. Background behavior and AI style prompt are auto-applied from the preset.',
+          ),
+        ))
 
         container.append(h('div', { className: 'mk-field' },
           h('label', { className: 'mk-label' }, 'Languages'),
@@ -444,15 +547,24 @@ export default {
 
       async function createCampaign() {
         if (!form.slug || !form.title || !form.topic) { toast('Fill in name, headline and topic', true); return }
+        const presetPayload = getPresetPayload(form.style_preset)
+        const ctaUrl = (form.target_url || '').trim()
+        if (!ctaUrl) {
+          toast('Please add a primary target URL', true)
+          return
+        }
+        const ctas = [{ type: 'register', label: 'Start Free Trial', url: ctaUrl }]
         const body = {
           slug: form.slug,
           title: form.title,
           topic: form.topic,
+          cta_url: ctaUrl,
           target_audience: form.audience,
           unique_selling_points: form.usps.split('\n').map(s => s.trim()).filter(Boolean),
           languages: form.languages,
           platforms: form.platforms,
-          ctas: form.ctas,
+          ctas,
+          ...presetPayload,
         }
         try {
           const d = await api.post('/campaigns', body)
@@ -524,6 +636,7 @@ export default {
 
     function renderPagesTab(ct, campaign, data) {
       const pages = data.pages || {}
+      const publishedPages = data.published_pages || {}
       const langs = campaign.languages || ['en']
 
       langs.forEach(lang => {
@@ -536,6 +649,8 @@ export default {
 
         if (page) {
           const htmlUrl = fileUrl(campaign.id, lang + '/index.html')
+          const published = publishedPages[lang] || null
+          const publicUrl = published?.slug ? `${context.apiBaseUrl}/api/v1/marketeer/public/${published.slug}` : ''
           const previewFrame = h('div', { className: 'mk-preview', style: { marginTop: '12px', position: 'relative' } })
           const iframe = h('iframe', { sandbox: 'allow-same-origin allow-scripts allow-popups', style: { width: '100%', height: '500px', border: 'none' } })
           previewFrame.append(iframe)
@@ -562,6 +677,44 @@ export default {
           card.append(h('div', { className: 'mk-row', style: { marginTop: '8px', justifyContent: 'space-between' } },
             h('div', { className: 'mk-row', style: { gap: '6px' } },
               h('button', { className: 'mk-btn mk-secondary', style: { padding: '5px 12px', fontSize: '12px' }, onClick: () => { navigator.clipboard.writeText(htmlUrl); toast('Page URL copied!') } }, '📋 Copy URL'),
+              published
+                ? h('button', {
+                    className: 'mk-btn mk-secondary',
+                    style: { padding: '5px 12px', fontSize: '12px' },
+                    onClick: () => {
+                      navigator.clipboard.writeText(publicUrl)
+                      toast('Public URL copied!')
+                    },
+                  }, '🌍 Copy Public URL')
+                : null,
+              asyncBtn(published ? '🔁 Republish' : '🌍 Publish Public', 'mk-secondary', async () => {
+                const currentSlug = published?.slug || `${campaign.id}-${lang}`.toLowerCase()
+                const typed = prompt('Public slug (a-z, 0-9, hyphen):', currentSlug)
+                if (typed === null) return
+                const slug = typed.trim().toLowerCase()
+                if (!slug) {
+                  toast('Slug is required', true)
+                  return
+                }
+                const d = await api.post(`/campaigns/${campaign.id}/pages/${lang}/publish`, { slug })
+                if (d.success) {
+                  toast('Page published publicly!')
+                  render()
+                } else {
+                  toast(d.error || 'Publish failed', true)
+                }
+              }),
+              published
+                ? asyncBtn('🔒 Unpublish', 'mk-secondary', async () => {
+                  const d = await api.del(`/campaigns/${campaign.id}/pages/${lang}/publish`)
+                  if (d.success) {
+                    toast('Public page removed')
+                    render()
+                  } else {
+                    toast(d.error || 'Unpublish failed', true)
+                  }
+                })
+                : null,
               asyncBtn('🔄 Regenerate', 'mk-secondary', async () => {
                 const d = await api.post(`/campaigns/${campaign.id}/generate`, { language: lang })
                 if (d.success) { toast('Page regenerated!'); render() } else toast(d.error || 'Failed', true)
@@ -573,6 +726,14 @@ export default {
               toast('Page deleted'); render()
             }),
           ))
+          if (published) {
+            card.append(
+              h('div', { style: { marginTop: '8px', fontSize: '12px', color: 'var(--txt-secondary)' } },
+                `Public URL: ${publicUrl}`,
+                h('span', { style: { marginLeft: '8px' } }, `Views: ${published.view_count || 0}`),
+              ),
+            )
+          }
         } else {
           card.append(h('div', { className: 'mk-empty', style: { padding: '24px' } },
             h('p', null, 'No landing page for this language yet.'),
@@ -1050,6 +1211,20 @@ export default {
         ...campaign,
         ctas: JSON.parse(JSON.stringify(campaign.ctas || [])),
       }
+      f.background_style = f.background_style || 'parallax'
+      f.background_color = f.background_color || '#111111'
+      f.background_secondary_color = f.background_secondary_color || '#1f2937'
+      f.background_image_url = f.background_image_url || ''
+      f.background_image_position = f.background_image_position || 'center center'
+      f.background_image_size = f.background_image_size || 'cover'
+      f.background_icon_url = f.background_icon_url || ''
+      f.background_icon_position = f.background_icon_position || 'center center'
+      f.background_icon_size_percent = f.background_icon_size_percent == null ? '20' : String(f.background_icon_size_percent)
+      f.background_icon_opacity = f.background_icon_opacity == null ? '0.35' : String(f.background_icon_opacity)
+      f.background_motion_intensity = f.background_motion_intensity || 'medium'
+      f.hero_text_align = f.hero_text_align || 'center'
+      f.background_overlay_opacity = f.background_overlay_opacity == null ? '0.48' : String(f.background_overlay_opacity)
+      f.style_prompt = (f.style_prompt || getStylePreset(f.background_style).style_prompt || '').trim()
       while (f.ctas.length < 2) f.ctas.push({ type: '', label: '', url: '' })
 
       // --- General ---
@@ -1080,12 +1255,93 @@ export default {
       // --- Appearance ---
       const sec2 = h('div', { className: 'mk-card' })
       sec2.append(h('h3', null, 'Appearance'))
+      sec2.append(h('div', { style: { fontSize: '12px', color: 'var(--txt-secondary)', marginBottom: '10px' } }, 'Quick style presets apply recommended background values and default AI style prompts.'))
+      sec2.append(h('div', { className: 'mk-preset-grid', style: { marginBottom: '12px' } },
+        ...Object.values(STYLE_PRESETS).map(preset => {
+          const selected = f.background_style === preset.id
+          return h('div', {
+            className: `mk-preset${selected ? ' on' : ''}`,
+            onClick: async () => {
+              const payload = getPresetPayload(preset.id)
+              const d = await api.put(`/campaigns/${campaign.id}`, payload)
+              if (d.success) {
+                toast(`Preset "${preset.label}" applied`)
+                render()
+              } else {
+                toast(d.error || 'Failed to apply preset', true)
+              }
+            },
+          },
+          h('div', { className: 'mk-preset-title' }, `${preset.emoji} ${preset.label}`),
+          h('div', { className: 'mk-preset-sub' }, preset.summary))
+        }),
+      ))
       sec2.append(h('div', { className: 'mk-row', style: { gap: '16px', alignItems: 'flex-end' } },
         h('div', { className: 'mk-grow' }, field('Accent Color', 'text', f.accent_color || '#00b79d', v => f.accent_color = v, '#00b79d')),
         colorPreview(f.accent_color || '#00b79d'),
       ))
       sec2.append(field('Brand Logo URL', 'text', f.brand_logo_url || '', v => f.brand_logo_url = v, 'https://.../logo.png'))
       sec2.append(field('Color Scheme Description', 'text', f.color_scheme || '', v => f.color_scheme = v, 'e.g. dark backgrounds with vibrant accent'))
+      sec2.append(h('div', { className: 'mk-row', style: { gap: '16px', alignItems: 'flex-end' } },
+        h('div', { className: 'mk-grow' },
+          h('div', { className: 'mk-field' },
+            h('label', { className: 'mk-label' }, 'Background Style'),
+            selectInput(BG_STYLES, f.background_style, v => f.background_style = v),
+          ),
+        ),
+        h('div', { style: { width: '180px', flexShrink: 0 } },
+          h('div', { className: 'mk-field' },
+            h('label', { className: 'mk-label' }, 'Hero Text Align'),
+            selectInput(TEXT_ALIGNS, f.hero_text_align, v => f.hero_text_align = v),
+          ),
+        ),
+      ))
+      sec2.append(h('div', { className: 'mk-row', style: { gap: '16px', alignItems: 'flex-end' } },
+        h('div', { className: 'mk-grow' }, field('Background Color', 'text', f.background_color, v => f.background_color = v, '#111111')),
+        h('div', { className: 'mk-grow' }, field('Secondary Background Color', 'text', f.background_secondary_color, v => f.background_secondary_color = v, '#1f2937')),
+      ))
+      sec2.append(field('Background Image URL (optional)', 'text', f.background_image_url, v => f.background_image_url = v, 'https://.../hero-bg.jpg'))
+      sec2.append(field('Background Icon URL (optional)', 'text', f.background_icon_url, v => f.background_icon_url = v, 'https://.../icon.svg'))
+      sec2.append(h('div', { className: 'mk-row', style: { gap: '16px', alignItems: 'flex-end' } },
+        h('div', { className: 'mk-grow' },
+          h('div', { className: 'mk-field' },
+            h('label', { className: 'mk-label' }, 'Background Image Position'),
+            selectInput(BG_POSITIONS, f.background_image_position, v => f.background_image_position = v),
+          ),
+        ),
+        h('div', { style: { width: '180px', flexShrink: 0 } },
+          h('div', { className: 'mk-field' },
+            h('label', { className: 'mk-label' }, 'Background Image Size'),
+            selectInput(BG_IMAGE_SIZES, f.background_image_size, v => f.background_image_size = v),
+          ),
+        ),
+      ))
+      sec2.append(h('div', { className: 'mk-row', style: { gap: '16px', alignItems: 'flex-end' } },
+        h('div', { className: 'mk-grow' },
+          h('div', { className: 'mk-field' },
+            h('label', { className: 'mk-label' }, 'Icon Position'),
+            selectInput(BG_POSITIONS, f.background_icon_position, v => f.background_icon_position = v),
+          ),
+        ),
+        h('div', { style: { width: '180px', flexShrink: 0 } },
+          field('Icon Size %', 'text', f.background_icon_size_percent, v => f.background_icon_size_percent = v, '20'),
+        ),
+        h('div', { style: { width: '180px', flexShrink: 0 } },
+          field('Icon Opacity', 'text', f.background_icon_opacity, v => f.background_icon_opacity = v, '0.35'),
+        ),
+      ))
+      sec2.append(h('div', { className: 'mk-row', style: { gap: '16px', alignItems: 'flex-end' } },
+        h('div', { className: 'mk-grow' },
+          h('div', { className: 'mk-field' },
+            h('label', { className: 'mk-label' }, 'Motion Intensity'),
+            selectInput(BG_MOTION_LEVELS, f.background_motion_intensity, v => f.background_motion_intensity = v),
+          ),
+        ),
+        h('div', { style: { width: '180px', flexShrink: 0 } },
+          field('Overlay Opacity (0-1)', 'text', f.background_overlay_opacity, v => f.background_overlay_opacity = v, '0.48'),
+        ),
+      ))
+      sec2.append(field('Style Prompt (auto default per preset)', 'textarea', f.style_prompt, v => f.style_prompt = v, 'Optional extra style direction for AI'))
       sec2.append(h('div', { style: { fontSize: '11px', color: 'var(--txt-secondary)', marginTop: '-12px', marginBottom: '16px' } }, 'Used for landing pages and AI image generation.'))
       ct.append(sec2)
 
@@ -1181,6 +1437,20 @@ export default {
           ctas, accent_color: f.accent_color, modal_content: f.modal_content || '',
           brand_logo_url: f.brand_logo_url || '', color_scheme: f.color_scheme || '',
           image_style: f.image_style || 'tech-forward', image_style_notes: f.image_style_notes || '',
+          background_style: f.background_style || 'parallax',
+          background_color: f.background_color || '#111111',
+          background_secondary_color: f.background_secondary_color || '#1f2937',
+          background_image_url: f.background_image_url || '',
+          background_image_position: f.background_image_position || 'center center',
+          background_image_size: f.background_image_size || 'cover',
+          background_icon_url: f.background_icon_url || '',
+          background_icon_position: f.background_icon_position || 'center center',
+          background_icon_size_percent: f.background_icon_size_percent || '20',
+          background_icon_opacity: f.background_icon_opacity || '0.35',
+          background_motion_intensity: f.background_motion_intensity || 'medium',
+          hero_text_align: f.hero_text_align || 'center',
+          background_overlay_opacity: f.background_overlay_opacity || '0.48',
+          style_prompt: f.style_prompt || getStylePreset(f.background_style || 'parallax').style_prompt,
           tracking: f.tracking || {},
         })
         if (d.success) { toast('Saved!'); render() } else toast(d.error || 'Failed', true)
@@ -1233,6 +1503,65 @@ export default {
       ))
       sec1.append(field('Default Brand Logo URL', 'text', cfg.default_brand_logo_url || '', v => cfg.default_brand_logo_url = v, 'https://.../logo.png'))
       sec1.append(field('Default Color Scheme', 'text', cfg.default_color_scheme || '', v => cfg.default_color_scheme = v, 'e.g. dark backgrounds with vibrant accent'))
+      sec1.append(h('div', { className: 'mk-row', style: { gap: '16px', alignItems: 'flex-end' } },
+        h('div', { className: 'mk-grow' },
+          h('div', { className: 'mk-field' },
+            h('label', { className: 'mk-label' }, 'Default Background Style'),
+            selectInput(BG_STYLES, cfg.default_background_style || 'parallax', v => cfg.default_background_style = v),
+          ),
+        ),
+        h('div', { style: { width: '180px', flexShrink: 0 } },
+          h('div', { className: 'mk-field' },
+            h('label', { className: 'mk-label' }, 'Default Hero Text Align'),
+            selectInput(TEXT_ALIGNS, cfg.default_hero_text_align || 'center', v => cfg.default_hero_text_align = v),
+          ),
+        ),
+      ))
+      sec1.append(h('div', { className: 'mk-row', style: { gap: '16px', alignItems: 'flex-end' } },
+        h('div', { className: 'mk-grow' }, field('Default Background Color', 'text', cfg.default_background_color || '#111111', v => cfg.default_background_color = v, '#111111')),
+        h('div', { className: 'mk-grow' }, field('Default Secondary Color', 'text', cfg.default_background_secondary_color || '#1f2937', v => cfg.default_background_secondary_color = v, '#1f2937')),
+      ))
+      sec1.append(field('Default Background Image URL', 'text', cfg.default_background_image_url || '', v => cfg.default_background_image_url = v, 'https://.../hero-bg.jpg'))
+      sec1.append(field('Default Background Icon URL', 'text', cfg.default_background_icon_url || '', v => cfg.default_background_icon_url = v, 'https://.../icon.svg'))
+      sec1.append(h('div', { className: 'mk-row', style: { gap: '16px', alignItems: 'flex-end' } },
+        h('div', { className: 'mk-grow' },
+          h('div', { className: 'mk-field' },
+            h('label', { className: 'mk-label' }, 'Default Background Image Position'),
+            selectInput(BG_POSITIONS, cfg.default_background_image_position || 'center center', v => cfg.default_background_image_position = v),
+          ),
+        ),
+        h('div', { style: { width: '180px', flexShrink: 0 } },
+          h('div', { className: 'mk-field' },
+            h('label', { className: 'mk-label' }, 'Default Image Size'),
+            selectInput(BG_IMAGE_SIZES, cfg.default_background_image_size || 'cover', v => cfg.default_background_image_size = v),
+          ),
+        ),
+      ))
+      sec1.append(h('div', { className: 'mk-row', style: { gap: '16px', alignItems: 'flex-end' } },
+        h('div', { className: 'mk-grow' },
+          h('div', { className: 'mk-field' },
+            h('label', { className: 'mk-label' }, 'Default Icon Position'),
+            selectInput(BG_POSITIONS, cfg.default_background_icon_position || 'center center', v => cfg.default_background_icon_position = v),
+          ),
+        ),
+        h('div', { style: { width: '180px', flexShrink: 0 } },
+          field('Default Icon Size %', 'text', cfg.default_background_icon_size_percent || '20', v => cfg.default_background_icon_size_percent = v, '20'),
+        ),
+        h('div', { style: { width: '180px', flexShrink: 0 } },
+          field('Default Icon Opacity', 'text', cfg.default_background_icon_opacity || '0.35', v => cfg.default_background_icon_opacity = v, '0.35'),
+        ),
+      ))
+      sec1.append(h('div', { className: 'mk-row', style: { gap: '16px', alignItems: 'flex-end' } },
+        h('div', { className: 'mk-grow' },
+          h('div', { className: 'mk-field' },
+            h('label', { className: 'mk-label' }, 'Default Motion Intensity'),
+            selectInput(BG_MOTION_LEVELS, cfg.default_background_motion_intensity || 'medium', v => cfg.default_background_motion_intensity = v),
+          ),
+        ),
+        h('div', { style: { width: '180px', flexShrink: 0 } },
+          field('Default Overlay Opacity', 'text', cfg.default_background_overlay_opacity || '0.48', v => cfg.default_background_overlay_opacity = v, '0.48'),
+        ),
+      ))
       root.append(sec1)
 
       const sec2 = h('div', { className: 'mk-card' })
@@ -1264,6 +1593,32 @@ export default {
         h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{accent_color}}'),
         ', ',
         h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{color_scheme}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{background_style}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{background_color}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{background_secondary_color}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{background_image_url}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{background_image_position}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{background_image_size}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{background_icon_url}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{background_icon_position}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{background_icon_size_percent}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{background_icon_opacity}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{background_motion_intensity}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{hero_text_align}}'),
+        ', ',
+        h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{background_overlay_opacity}}'),
         ', ',
         h('code', { style: { fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px' } }, '{{privacy_url}}'),
         ', ',

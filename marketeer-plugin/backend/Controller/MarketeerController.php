@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Plugin\Marketeer\Controller;
 
 use App\AI\Service\AiFacade;
+use App\Entity\PluginData;
 use App\Entity\User;
 use App\Repository\ConfigRepository;
+use App\Repository\PluginDataRepository;
 use App\Service\ModelConfigService;
 use App\Service\PluginDataService;
 use OpenApi\Attributes as OA;
@@ -34,11 +36,13 @@ class MarketeerController extends AbstractController
     private const CONFIG_GROUP = 'P_marketeer';
     private const DATA_TYPE_CAMPAIGN = 'campaign';
     private const DATA_TYPE_PAGE = 'page';
+    private const DATA_TYPE_PUBLIC_PAGE = 'public_page';
 
     public function __construct(
         private AiFacade $aiFacade,
         private ModelConfigService $modelConfigService,
         private PluginDataService $pluginData,
+        private PluginDataRepository $pluginDataRepository,
         private MarketeerInstallService $installService,
         private ContentGenerator $contentGenerator,
         private LandingPageService $landingPageService,
@@ -153,6 +157,13 @@ class MarketeerController extends AbstractController
             'default_language', 'cta_url', 'brand_name',
             'privacy_policy_url', 'imprint_url', 'gtm_id', 'gads_conversion_id',
             'default_accent_color', 'default_brand_logo_url', 'default_color_scheme',
+            'default_background_style', 'default_background_image_url',
+            'default_background_image_position', 'default_hero_text_align',
+            'default_background_overlay_opacity',
+            'default_background_color', 'default_background_secondary_color',
+            'default_background_image_size', 'default_background_icon_url',
+            'default_background_icon_position', 'default_background_icon_size_percent',
+            'default_background_icon_opacity', 'default_background_motion_intensity',
         ];
         $updated = [];
 
@@ -415,6 +426,20 @@ class MarketeerController extends AbstractController
                 new OA\Property(property: 'platforms', type: 'array', items: new OA\Items(type: 'string'), nullable: true),
                 new OA\Property(property: 'ctas', type: 'array', items: new OA\Items(type: 'object'), nullable: true),
                 new OA\Property(property: 'tracking', type: 'object', nullable: true),
+                new OA\Property(property: 'background_style', type: 'string', nullable: true, example: 'parallax'),
+                new OA\Property(property: 'background_color', type: 'string', nullable: true, example: '#111111'),
+                new OA\Property(property: 'background_secondary_color', type: 'string', nullable: true, example: '#1f2937'),
+                new OA\Property(property: 'background_image_url', type: 'string', nullable: true),
+                new OA\Property(property: 'background_image_position', type: 'string', nullable: true, example: 'center top'),
+                new OA\Property(property: 'background_image_size', type: 'string', nullable: true, example: 'cover'),
+                new OA\Property(property: 'background_icon_url', type: 'string', nullable: true),
+                new OA\Property(property: 'background_icon_position', type: 'string', nullable: true, example: 'right top'),
+                new OA\Property(property: 'background_icon_size_percent', type: 'number', format: 'float', nullable: true, example: 20),
+                new OA\Property(property: 'background_icon_opacity', type: 'number', format: 'float', nullable: true, example: 0.35),
+                new OA\Property(property: 'background_motion_intensity', type: 'string', nullable: true, example: 'medium'),
+                new OA\Property(property: 'hero_text_align', type: 'string', nullable: true, example: 'left'),
+                new OA\Property(property: 'background_overlay_opacity', type: 'number', format: 'float', nullable: true, example: 0.5),
+                new OA\Property(property: 'style_prompt', type: 'string', nullable: true, example: 'Use a cinematic image cover hero with readable overlay'),
             ]
         )
     )]
@@ -460,6 +485,22 @@ class MarketeerController extends AbstractController
             'accent_color' => $data['accent_color'] ?? $config['default_accent_color'] ?? '#00b79d',
             'brand_logo_url' => $data['brand_logo_url'] ?? $config['default_brand_logo_url'] ?? '',
             'color_scheme' => $data['color_scheme'] ?? $config['default_color_scheme'] ?? 'dark backgrounds (#111) with vibrant accent',
+            'background_style' => $data['background_style'] ?? $config['default_background_style'] ?? 'parallax',
+            'background_color' => $data['background_color'] ?? $config['default_background_color'] ?? '#111111',
+            'background_secondary_color' => $data['background_secondary_color'] ?? $config['default_background_secondary_color'] ?? '#1f2937',
+            'background_image_url' => $data['background_image_url'] ?? $config['default_background_image_url'] ?? '',
+            'background_image_position' => $data['background_image_position'] ?? $config['default_background_image_position'] ?? 'center center',
+            'background_image_size' => $data['background_image_size'] ?? $config['default_background_image_size'] ?? 'cover',
+            'background_icon_url' => $data['background_icon_url'] ?? $config['default_background_icon_url'] ?? '',
+            'background_icon_position' => $data['background_icon_position'] ?? $config['default_background_icon_position'] ?? 'center center',
+            'background_icon_size_percent' => $data['background_icon_size_percent'] ?? $config['default_background_icon_size_percent'] ?? 20,
+            'background_icon_opacity' => $data['background_icon_opacity'] ?? $config['default_background_icon_opacity'] ?? 0.35,
+            'background_motion_intensity' => $data['background_motion_intensity'] ?? $config['default_background_motion_intensity'] ?? 'medium',
+            'hero_text_align' => $data['hero_text_align'] ?? $config['default_hero_text_align'] ?? 'center',
+            'background_overlay_opacity' => $data['background_overlay_opacity'] ?? $config['default_background_overlay_opacity'] ?? 0.48,
+            'style_prompt' => $data['style_prompt'] ?? $this->getDefaultStylePrompt(
+                (string) ($data['background_style'] ?? $config['default_background_style'] ?? 'parallax'),
+            ),
             'modal_content' => $data['modal_content'] ?? '',
             'tracking' => $data['tracking'] ?? [
                 'gtm_id' => $config['gtm_id'] ?? '',
@@ -516,6 +557,7 @@ class MarketeerController extends AbstractController
             'success' => true,
             'campaign' => array_merge(['id' => $campaignId], $campaign),
             'pages' => $pages,
+            'published_pages' => $this->getPublishedPagesForCampaign($userId, $campaignId),
             'ad_copy' => $adCopy,
             'social_posts' => $socialPosts,
             'collaterals' => $collaterals,
@@ -563,6 +605,11 @@ class MarketeerController extends AbstractController
             'target_audience', 'unique_selling_points', 'platforms',
             'ctas', 'tracking', 'sort_order', 'accent_color', 'modal_content',
             'brand_logo_url', 'color_scheme', 'image_style', 'image_style_notes',
+            'background_style', 'background_image_url', 'background_image_position',
+            'background_color', 'background_secondary_color',
+            'background_image_size', 'background_icon_url', 'background_icon_position',
+            'background_icon_size_percent', 'background_icon_opacity', 'background_motion_intensity',
+            'hero_text_align', 'background_overlay_opacity', 'style_prompt',
         ];
 
         foreach ($allowedFields as $field) {
@@ -657,6 +704,9 @@ class MarketeerController extends AbstractController
         $config = $this->getPluginConfig($userId);
         $language = $data['language'] ?? $config['default_language'];
         $extraInstructions = $data['extra_instructions'] ?? null;
+        if (($extraInstructions === null || trim((string) $extraInstructions) === '') && !empty($campaign['style_prompt'])) {
+            $extraInstructions = (string) $campaign['style_prompt'];
+        }
 
         try {
             $systemPrompt = $this->contentGenerator->buildLandingPagePrompt($campaign, $config, $language);
@@ -756,6 +806,140 @@ class MarketeerController extends AbstractController
 
         $pageKey = $campaignId . '_' . $language;
         $deleted = $this->pluginData->delete($userId, self::PLUGIN_NAME, self::DATA_TYPE_PAGE, $pageKey);
+
+        return $this->json([
+            'success' => true,
+            'deleted' => $deleted,
+        ]);
+    }
+
+    #[Route('/campaigns/{campaignId}/pages/{language}/publish', name: 'page_publish', methods: ['POST'])]
+    #[OA\Post(
+        path: '/api/v1/user/{userId}/plugins/marketeer/campaigns/{campaignId}/pages/{language}/publish',
+        summary: 'Publish a landing page with a public slug URL',
+        security: [['ApiKey' => []]],
+        tags: ['Marketeer Plugin']
+    )]
+    #[OA\RequestBody(
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'slug', type: 'string', nullable: true, example: 'my-campaign-de'),
+                new OA\Property(property: 'active', type: 'boolean', nullable: true, example: true),
+            ]
+        )
+    )]
+    #[OA\Response(response: 200, description: 'Page published')]
+    public function publishPage(
+        Request $request,
+        int $userId,
+        string $campaignId,
+        string $language,
+        #[CurrentUser] ?User $user,
+    ): JsonResponse {
+        if (!$this->canAccessPlugin($user, $userId)) {
+            return $this->json(['success' => false, 'error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $campaign = $this->pluginData->get($userId, self::PLUGIN_NAME, self::DATA_TYPE_CAMPAIGN, $campaignId);
+        if ($campaign === null) {
+            return $this->json(['success' => false, 'error' => 'Campaign not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $pageKey = $campaignId . '_' . $language;
+        $page = $this->pluginData->get($userId, self::PLUGIN_NAME, self::DATA_TYPE_PAGE, $pageKey);
+        if ($page === null) {
+            return $this->json(
+                ['success' => false, 'error' => 'Page not found for language. Generate page first.'],
+                Response::HTTP_BAD_REQUEST,
+            );
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+        $requestedSlug = isset($data['slug']) ? trim((string) $data['slug']) : '';
+        $active = !array_key_exists('active', $data) || (bool) $data['active'];
+
+        $publishedEntries = $this->pluginData->listWithKeys($userId, self::PLUGIN_NAME, self::DATA_TYPE_PUBLIC_PAGE);
+        $existingKey = null;
+        $existingData = null;
+        foreach ($publishedEntries as $entry) {
+            $entryData = $entry['data'] ?? [];
+            if (($entryData['campaign_id'] ?? '') === $campaignId && ($entryData['language'] ?? '') === $language) {
+                $existingKey = $entry['key'];
+                $existingData = $entryData;
+                break;
+            }
+        }
+
+        $slug = $requestedSlug;
+        if ($slug === '') {
+            $slug = (string) ($existingData['slug'] ?? $this->generatePublicSlug($campaignId, $language));
+        }
+        if (!preg_match('/^[a-z0-9-]{3,120}$/', $slug)) {
+            return $this->json(
+                ['success' => false, 'error' => 'Invalid slug. Use 3-120 chars: a-z, 0-9, hyphen.'],
+                Response::HTTP_BAD_REQUEST,
+            );
+        }
+        $slug = strtolower($slug);
+
+        $ignoreId = null;
+        if ($existingKey !== null) {
+            $existingRecord = $this->pluginDataRepository->findOneByKey($userId, self::PLUGIN_NAME, self::DATA_TYPE_PUBLIC_PAGE, $existingKey);
+            $ignoreId = $existingRecord?->getId();
+        }
+        $slug = $this->ensureUniquePublicSlug($slug, $ignoreId);
+
+        $now = (new \DateTimeImmutable())->format('c');
+        $publicData = [
+            'slug' => $slug,
+            'campaign_id' => $campaignId,
+            'language' => $language,
+            'title' => $campaign['title'] ?? $campaignId,
+            'is_active' => $active,
+            'published_at' => $existingData['published_at'] ?? $now,
+            'updated_at' => $now,
+            'view_count' => (int) ($existingData['view_count'] ?? 0),
+            'last_accessed_at' => $existingData['last_accessed_at'] ?? null,
+        ];
+
+        $recordKey = $existingKey ?? ('pub_' . bin2hex(random_bytes(8)));
+        $this->pluginData->set($userId, self::PLUGIN_NAME, self::DATA_TYPE_PUBLIC_PAGE, $recordKey, $publicData);
+
+        return $this->json([
+            'success' => true,
+            'published' => array_merge(['key' => $recordKey], $publicData),
+            'public_url' => '/api/v1/marketeer/public/' . $slug,
+            'absolute_public_url' => rtrim($request->getSchemeAndHttpHost(), '/') . '/api/v1/marketeer/public/' . $slug,
+        ]);
+    }
+
+    #[Route('/campaigns/{campaignId}/pages/{language}/publish', name: 'page_unpublish', methods: ['DELETE'])]
+    #[OA\Delete(
+        path: '/api/v1/user/{userId}/plugins/marketeer/campaigns/{campaignId}/pages/{language}/publish',
+        summary: 'Unpublish a landing page slug URL',
+        security: [['ApiKey' => []]],
+        tags: ['Marketeer Plugin']
+    )]
+    #[OA\Response(response: 200, description: 'Page unpublished')]
+    public function unpublishPage(
+        int $userId,
+        string $campaignId,
+        string $language,
+        #[CurrentUser] ?User $user,
+    ): JsonResponse {
+        if (!$this->canAccessPlugin($user, $userId)) {
+            return $this->json(['success' => false, 'error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $publishedEntries = $this->pluginData->listWithKeys($userId, self::PLUGIN_NAME, self::DATA_TYPE_PUBLIC_PAGE);
+        $deleted = false;
+        foreach ($publishedEntries as $entry) {
+            $entryData = $entry['data'] ?? [];
+            if (($entryData['campaign_id'] ?? '') === $campaignId && ($entryData['language'] ?? '') === $language) {
+                $this->pluginData->delete($userId, self::PLUGIN_NAME, self::DATA_TYPE_PUBLIC_PAGE, $entry['key']);
+                $deleted = true;
+            }
+        }
 
         return $this->json([
             'success' => true,
@@ -2088,7 +2272,31 @@ class MarketeerController extends AbstractController
     }
 
     /**
-     * @return array{default_language: string, cta_url: string, brand_name: string, privacy_policy_url: string, imprint_url: string, gtm_id: string, gads_conversion_id: string}
+     * @return array{
+     *     default_language: string,
+     *     cta_url: string,
+     *     brand_name: string,
+     *     privacy_policy_url: string,
+     *     imprint_url: string,
+     *     gtm_id: string,
+     *     gads_conversion_id: string,
+     *     default_accent_color: string,
+     *     default_brand_logo_url: string,
+     *     default_color_scheme: string,
+     *     default_background_style: string,
+     *     default_background_color: string,
+     *     default_background_secondary_color: string,
+     *     default_background_image_url: string,
+     *     default_background_image_position: string,
+     *     default_background_image_size: string,
+     *     default_background_icon_url: string,
+     *     default_background_icon_position: string,
+     *     default_background_icon_size_percent: string,
+     *     default_background_icon_opacity: string,
+     *     default_background_motion_intensity: string,
+     *     default_hero_text_align: string,
+     *     default_background_overlay_opacity: string
+     * }
      */
     private function getPluginConfig(int $userId): array
     {
@@ -2103,6 +2311,19 @@ class MarketeerController extends AbstractController
             'default_accent_color' => '#00b79d',
             'default_brand_logo_url' => '',
             'default_color_scheme' => 'dark backgrounds (#111) with vibrant accent',
+            'default_background_style' => 'parallax',
+            'default_background_color' => '#111111',
+            'default_background_secondary_color' => '#1f2937',
+            'default_background_image_url' => '',
+            'default_background_image_position' => 'center center',
+            'default_background_image_size' => 'cover',
+            'default_background_icon_url' => '',
+            'default_background_icon_position' => 'center center',
+            'default_background_icon_size_percent' => '20',
+            'default_background_icon_opacity' => '0.35',
+            'default_background_motion_intensity' => 'medium',
+            'default_hero_text_align' => 'center',
+            'default_background_overlay_opacity' => '0.48',
         ];
 
         $config = [];
@@ -2193,5 +2414,86 @@ class MarketeerController extends AbstractController
         }
 
         return $platforms;
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function getPublishedPagesForCampaign(int $userId, string $campaignId): array
+    {
+        $entries = $this->pluginData->listWithKeys($userId, self::PLUGIN_NAME, self::DATA_TYPE_PUBLIC_PAGE);
+        $result = [];
+        foreach ($entries as $entry) {
+            $data = $entry['data'] ?? [];
+            if (($data['campaign_id'] ?? '') !== $campaignId) {
+                continue;
+            }
+            $language = (string) ($data['language'] ?? '');
+            if ($language === '') {
+                continue;
+            }
+            $result[$language] = array_merge(['key' => $entry['key']], $data);
+        }
+
+        return $result;
+    }
+
+    private function generatePublicSlug(string $campaignId, string $language): string
+    {
+        $suffix = substr(bin2hex(random_bytes(4)), 0, 6);
+
+        return strtolower($campaignId . '-' . $language . '-' . $suffix);
+    }
+
+    private function getDefaultStylePrompt(string $backgroundStyle): string
+    {
+        return match (strtolower(trim($backgroundStyle))) {
+            'solid' => 'Use a clean premium layout with a calm static background and strong typography contrast. Keep it readable and conversion-focused.',
+            'image_cover' => 'Create a cinematic hero with a full-cover background image and a subtle dark overlay. Keep content readable and centered around one clear CTA.',
+            'icon_fixed' => 'Use a minimal static background with one decorative icon/shape in the back. The icon should support the topic but never distract from the CTA.',
+            'icon_floating' => 'Use a playful floating icon in the background with gentle motion. Keep animation subtle enough for business pages and maintain excellent readability.',
+            'glass_3d_ball' => 'Create a modern glassmorphism hero with a pseudo-3D bouncing ball scene in the background. Keep text sharp, premium, and easy to read.',
+            default => 'Use layered parallax buzzword rows with smooth motion and strong visual hierarchy. Keep the hero text highly readable and conversion-driven.',
+        };
+    }
+
+    private function ensureUniquePublicSlug(string $slug, ?int $ignoreRecordId = null): string
+    {
+        $candidate = $slug;
+        $attempt = 0;
+        while ($this->publicSlugExists($candidate, $ignoreRecordId)) {
+            ++$attempt;
+            $suffix = substr(bin2hex(random_bytes(3)), 0, 4);
+            $candidate = substr($slug, 0, 110) . '-' . $suffix;
+            if ($attempt > 10) {
+                $candidate = 'page-' . substr(bin2hex(random_bytes(8)), 0, 10);
+                break;
+            }
+        }
+
+        return $candidate;
+    }
+
+    private function publicSlugExists(string $slug, ?int $ignoreRecordId = null): bool
+    {
+        $entries = $this->pluginDataRepository->findBy([
+            'pluginName' => self::PLUGIN_NAME,
+            'dataType' => self::DATA_TYPE_PUBLIC_PAGE,
+        ]);
+
+        foreach ($entries as $entry) {
+            if (!$entry instanceof PluginData) {
+                continue;
+            }
+            if ($ignoreRecordId !== null && $entry->getId() === $ignoreRecordId) {
+                continue;
+            }
+            $data = $entry->getData();
+            if (($data['slug'] ?? '') === $slug && (bool) ($data['is_active'] ?? true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

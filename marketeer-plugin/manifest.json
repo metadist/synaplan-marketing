@@ -26,6 +26,8 @@
     {"path": "/campaigns/{campaignId}/generate", "method": "POST", "description": "Generate landing page via AI"},
     {"path": "/campaigns/{campaignId}/pages/{language}", "method": "GET", "description": "Get specific page"},
     {"path": "/campaigns/{campaignId}/pages/{language}", "method": "DELETE", "description": "Delete specific page"},
+    {"path": "/campaigns/{campaignId}/pages/{language}/publish", "method": "POST", "description": "Publish page with public slug URL"},
+    {"path": "/campaigns/{campaignId}/pages/{language}/publish", "method": "DELETE", "description": "Unpublish public page slug URL"},
     {"path": "/campaigns/{campaignId}/refine", "method": "POST", "description": "Refine content with AI"},
     {"path": "/campaigns/{campaignId}/generate-ad-copy", "method": "POST", "description": "Generate ad copy for platform"},
     {"path": "/campaigns/{campaignId}/ad-copy", "method": "GET", "description": "List all ad copy and social posts"},
@@ -65,8 +67,22 @@
       {"key": "imprint_url", "type": "string", "default": "", "description": "Imprint/legal notice URL"},
       {"key": "gtm_id", "type": "string", "default": "", "description": "Google Tag Manager container ID"},
       {"key": "gads_conversion_id", "type": "string", "default": "", "description": "Google Ads conversion tracking ID"},
+      {"key": "default_accent_color", "type": "string", "default": "#00b79d", "description": "Default accent color used in generated pages"},
       {"key": "default_brand_logo_url", "type": "string", "default": "", "description": "Default URL for brand logo image"},
-      {"key": "default_color_scheme", "type": "string", "default": "dark backgrounds (#111) with vibrant accent", "description": "Default color scheme description"}
+      {"key": "default_color_scheme", "type": "string", "default": "dark backgrounds (#111) with vibrant accent", "description": "Default color scheme description"},
+      {"key": "default_background_style", "type": "string", "default": "parallax", "description": "Default hero background style (solid, parallax, image_cover, icon_fixed, icon_floating, glass_3d_ball)"},
+      {"key": "default_background_color", "type": "string", "default": "#111111", "description": "Default primary background color"},
+      {"key": "default_background_secondary_color", "type": "string", "default": "#1f2937", "description": "Default secondary background color/gradient stop"},
+      {"key": "default_background_image_url", "type": "string", "default": "", "description": "Default hero background image URL for image style"},
+      {"key": "default_background_image_position", "type": "string", "default": "center center", "description": "Default hero background image position"},
+      {"key": "default_background_image_size", "type": "string", "default": "cover", "description": "Default hero background image size (cover, contain, or percentage)"},
+      {"key": "default_background_icon_url", "type": "string", "default": "", "description": "Default icon/small background image URL"},
+      {"key": "default_background_icon_position", "type": "string", "default": "center center", "description": "Default icon position in background"},
+      {"key": "default_background_icon_size_percent", "type": "string", "default": "20", "description": "Default icon size in percent of card width"},
+      {"key": "default_background_icon_opacity", "type": "string", "default": "0.35", "description": "Default icon opacity"},
+      {"key": "default_background_motion_intensity", "type": "string", "default": "medium", "description": "Default background motion intensity (subtle, medium, wild)"},
+      {"key": "default_hero_text_align", "type": "string", "default": "center", "description": "Default hero text alignment (left, center, right)"},
+      {"key": "default_background_overlay_opacity", "type": "string", "default": "0.48", "description": "Default dark overlay opacity for readable foreground text"}
     ]
   }
 }
