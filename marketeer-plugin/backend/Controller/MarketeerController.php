@@ -11,6 +11,8 @@ use App\Repository\ConfigRepository;
 use App\Repository\PluginDataRepository;
 use App\Service\ModelConfigService;
 use App\Service\PluginDataService;
+use App\Service\Exception\RateLimitExceededException;
+use App\Service\RateLimitService;
 use OpenApi\Attributes as OA;
 use Plugin\Marketeer\Service\AdCopyService;
 use Plugin\Marketeer\Service\ComplianceService;
@@ -50,6 +52,7 @@ class MarketeerController extends AbstractController
         private GoogleAdsPlannerService $adsPlannerService,
         private ComplianceService $complianceService,
         private ConfigRepository $configRepository,
+        private RateLimitService $rateLimitService,
         private LoggerInterface $logger,
         #[Autowire('%app.upload_dir%')] private string $uploadDir,
     ) {
@@ -348,7 +351,7 @@ class MarketeerController extends AbstractController
 
         try {
             $messages = $this->contentGenerator->buildCampaignPlanPrompt($data['idea'], $config, $language);
-            $response = $this->callChat($userId, $messages, 0.7, 4000);
+            $response = $this->callChat($user, $messages, 0.7, 4000);
             $plan = $this->contentGenerator->parseJsonResponse($response['content']);
 
             return $this->json([
@@ -357,6 +360,8 @@ class MarketeerController extends AbstractController
                 'model' => $response['model'] ?? null,
                 'provider' => $response['provider'] ?? null,
             ]);
+        } catch (RateLimitExceededException $e) {
+            return $this->rateLimitExceededResponse($user, $e);
         } catch (\Throwable $e) {
             $this->logger->error('Marketeer campaign planning failed', [
                 'user_id' => $userId,
@@ -717,7 +722,7 @@ class MarketeerController extends AbstractController
             $systemPrompt = $this->contentGenerator->buildLandingPagePrompt($campaign, $config, $language);
             $userMessage = $this->contentGenerator->buildLandingPageRequest($campaign, $language, $extraInstructions);
 
-            $response = $this->callChat($userId, [
+            $response = $this->callChat($user, [
                 ['role' => 'system', 'content' => $systemPrompt],
                 ['role' => 'user', 'content' => $userMessage],
             ], 0.7, 8000);
@@ -746,6 +751,8 @@ class MarketeerController extends AbstractController
                 'page' => $pageData,
                 'file' => "marketeer/{$campaignId}/{$language}/index.html",
             ]);
+        } catch (RateLimitExceededException $e) {
+            return $this->rateLimitExceededResponse($user, $e);
         } catch (\Throwable $e) {
             $this->logger->error('Marketeer page generation failed', [
                 'user_id' => $userId,
@@ -1024,7 +1031,7 @@ class MarketeerController extends AbstractController
                 $existingPage,
             );
 
-            $response = $this->callChat($userId, $messages, 0.7, 8000);
+            $response = $this->callChat($user, $messages, 0.7, 8000);
 
             if ($target === 'html') {
                 $html = $this->contentGenerator->extractHtml($response['content']);
@@ -1055,6 +1062,8 @@ class MarketeerController extends AbstractController
                 'count' => count($keywords),
                 'file' => "marketeer/{$campaignId}/{$language}/keywords.txt",
             ]);
+        } catch (RateLimitExceededException $e) {
+            return $this->rateLimitExceededResponse($user, $e);
         } catch (\Throwable $e) {
             $this->logger->error('Marketeer refinement failed', [
                 'user_id' => $userId,
@@ -1122,7 +1131,7 @@ class MarketeerController extends AbstractController
         try {
             $campaign['cta_url'] = $campaign['cta_url'] ?? $config['cta_url'];
             $messages = $this->contentGenerator->buildAdCopyPrompt($campaign, $config, $language, $platform);
-            $response = $this->callChat($userId, $messages, 0.6, 4000);
+            $response = $this->callChat($user, $messages, 0.6, 4000);
             $parsed = $this->contentGenerator->parseJsonResponse($response['content']);
 
             $parsed['generated_at'] = (new \DateTimeImmutable())->format('c');
@@ -1148,6 +1157,8 @@ class MarketeerController extends AbstractController
                 'language' => $language,
                 'content' => $parsed,
             ]);
+        } catch (RateLimitExceededException $e) {
+            return $this->rateLimitExceededResponse($user, $e);
         } catch (\Throwable $e) {
             $this->logger->error('Marketeer ad copy generation failed', [
                 'user_id' => $userId,
@@ -1260,7 +1271,7 @@ class MarketeerController extends AbstractController
 
         try {
             $messages = $this->contentGenerator->buildKeywordPrompt($campaign, $config, $language, $count, $extraInstructions);
-            $response = $this->callChat($userId, $messages, 0.5, 4000);
+            $response = $this->callChat($user, $messages, 0.5, 4000);
             $keywords = $this->contentGenerator->parseKeywordResponse($response['content']);
 
             $this->landingPageService->saveKeywordsFile($userId, $campaignId, $language, $keywords);
@@ -1278,6 +1289,8 @@ class MarketeerController extends AbstractController
                 'count' => count($keywords),
                 'file' => "marketeer/{$campaignId}/{$language}/keywords.txt",
             ]);
+        } catch (RateLimitExceededException $e) {
+            return $this->rateLimitExceededResponse($user, $e);
         } catch (\Throwable $e) {
             $this->logger->error('Marketeer keyword generation failed', [
                 'user_id' => $userId,
@@ -1346,7 +1359,7 @@ class MarketeerController extends AbstractController
             $imagePrompt = $data['prompt']
                 ?? $this->contentGenerator->buildImagePrompt($campaign, $config, $imageType);
 
-            $result = $this->aiFacade->generateImage($imagePrompt, $userId);
+            $result = $this->generateImageForUser($user, $imagePrompt);
 
             if (!empty($result['images'])) {
                 $imageData = $result['images'][0];
@@ -1383,6 +1396,8 @@ class MarketeerController extends AbstractController
                 'success' => false,
                 'error' => 'No image returned by provider',
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        } catch (RateLimitExceededException $e) {
+            return $this->rateLimitExceededResponse($user, $e);
         } catch (\Throwable $e) {
             $this->logger->error('Marketeer image generation failed', [
                 'user_id' => $userId,
@@ -1449,7 +1464,7 @@ class MarketeerController extends AbstractController
         try {
             $prompt = $this->contentGenerator->buildVideoPrompt($campaign, $config, $description);
 
-            $result = $this->aiFacade->generateVideo($prompt, $userId, [
+            $result = $this->generateVideoForUser($user, $prompt, [
                 'duration' => $duration,
             ]);
 
@@ -1490,6 +1505,8 @@ class MarketeerController extends AbstractController
                 'duration' => $duration,
                 'provider' => $result['provider'] ?? null,
             ]);
+        } catch (RateLimitExceededException $e) {
+            return $this->rateLimitExceededResponse($user, $e);
         } catch (\Throwable $e) {
             $this->logger->error('Marketeer video generation failed', [
                 'user_id' => $userId,
@@ -1641,7 +1658,7 @@ class MarketeerController extends AbstractController
         try {
             $campaign['cta_url'] = $campaign['cta_url'] ?? $config['cta_url'];
             $messages = $this->contentGenerator->buildAdsCampaignStructurePrompt($campaign, $config, $language, $extraInstructions);
-            $response = $this->callChat($userId, $messages, 0.6, 6000);
+            $response = $this->callChat($user, $messages, 0.6, 6000);
             $structure = $this->contentGenerator->parseJsonResponse($response['content']);
 
             $structure['language'] = $language;
@@ -1663,6 +1680,8 @@ class MarketeerController extends AbstractController
                 'ads_campaign_id' => $id,
                 'ads_campaign' => $structure,
             ], Response::HTTP_CREATED);
+        } catch (RateLimitExceededException $e) {
+            return $this->rateLimitExceededResponse($user, $e);
         } catch (\Throwable $e) {
             $this->logger->error('Marketeer ads campaign generation failed', [
                 'user_id' => $userId,
@@ -1896,7 +1915,7 @@ class MarketeerController extends AbstractController
 
         try {
             $messages = $this->contentGenerator->buildComplianceCheckPrompt($campaign, $config, $language);
-            $response = $this->callChat($userId, $messages, 0.3, 4000);
+            $response = $this->callChat($user, $messages, 0.3, 4000);
             $review = $this->contentGenerator->parseJsonResponse($response['content']);
 
             return $this->json([
@@ -1904,6 +1923,8 @@ class MarketeerController extends AbstractController
                 'review' => $review,
                 'model' => $response['model'] ?? null,
             ]);
+        } catch (RateLimitExceededException $e) {
+            return $this->rateLimitExceededResponse($user, $e);
         } catch (\Throwable $e) {
             $this->logger->error('Marketeer compliance review failed', [
                 'user_id' => $userId,
@@ -1998,7 +2019,7 @@ class MarketeerController extends AbstractController
 
         try {
             $messages = $this->contentGenerator->buildPreLaunchCheckPrompt($campaign, $config, $assets);
-            $response = $this->callChat($userId, $messages, 0.3, 4000);
+            $response = $this->callChat($user, $messages, 0.3, 4000);
             $checklist = $this->contentGenerator->parseJsonResponse($response['content']);
 
             return $this->json([
@@ -2006,6 +2027,8 @@ class MarketeerController extends AbstractController
                 'checklist' => $checklist,
                 'assets_summary' => $assets,
             ]);
+        } catch (RateLimitExceededException $e) {
+            return $this->rateLimitExceededResponse($user, $e);
         } catch (\Throwable $e) {
             $this->logger->error('Marketeer checklist generation failed', [
                 'user_id' => $userId,
@@ -2354,13 +2377,16 @@ class MarketeerController extends AbstractController
      * @param array<int, array{role: string, content: string}> $messages
      * @return array<string, mixed>
      */
-    private function callChat(int $userId, array $messages, float $temperature, int $maxTokens): array
+    private function callChat(User $user, array $messages, float $temperature, int $maxTokens): array
     {
+        $this->assertRateLimit($user, 'MESSAGES');
+
+        $userId = (int) $user->getId();
         $modelId = $this->modelConfigService->getDefaultModel('CHAT', $userId);
         $provider = $modelId ? $this->modelConfigService->getProviderForModel($modelId) : null;
         $modelName = $modelId ? $this->modelConfigService->getModelName($modelId) : null;
 
-        return $this->aiFacade->chat(
+        $response = $this->aiFacade->chat(
             $messages,
             $userId,
             [
@@ -2370,6 +2396,97 @@ class MarketeerController extends AbstractController
                 'max_tokens' => $maxTokens,
             ],
         );
+
+        $inputText = implode("\n\n", array_map(
+            static fn (array $message): string => sprintf(
+                '%s: %s',
+                (string) ($message['role'] ?? 'user'),
+                (string) ($message['content'] ?? '')
+            ),
+            $messages
+        ));
+
+        $this->rateLimitService->recordUsage($user, 'MESSAGES', [
+            'provider' => $response['provider'] ?? $provider ?? '',
+            'model' => $response['model'] ?? $modelName ?? '',
+            'input_text' => $inputText,
+            'response_text' => (string) ($response['content'] ?? ''),
+            'source' => 'MARKETEER',
+        ]);
+
+        return $response;
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     * @return array<string, mixed>
+     */
+    private function generateImageForUser(User $user, string $prompt, array $options = []): array
+    {
+        $this->assertRateLimit($user, 'IMAGES');
+
+        $result = $this->aiFacade->generateImage((string) $prompt, (int) $user->getId(), $options);
+
+        $this->rateLimitService->recordUsage($user, 'IMAGES', [
+            'provider' => $result['provider'] ?? '',
+            'model' => $result['model'] ?? '',
+            'input_text' => $prompt,
+            'source' => 'MARKETEER',
+        ]);
+
+        return $result;
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     * @return array<string, mixed>
+     */
+    private function generateVideoForUser(User $user, string $prompt, array $options = []): array
+    {
+        $this->assertRateLimit($user, 'VIDEOS');
+
+        $result = $this->aiFacade->generateVideo((string) $prompt, (int) $user->getId(), $options);
+
+        $this->rateLimitService->recordUsage($user, 'VIDEOS', [
+            'provider' => $result['provider'] ?? '',
+            'model' => $result['model'] ?? '',
+            'input_text' => $prompt,
+            'source' => 'MARKETEER',
+        ]);
+
+        return $result;
+    }
+
+    private function assertRateLimit(User $user, string $action): void
+    {
+        $check = $this->rateLimitService->checkLimit($user, $action);
+        if (($check['allowed'] ?? true) !== true) {
+            throw new RateLimitExceededException($action, (int) ($check['used'] ?? 0), (int) ($check['limit'] ?? 0));
+        }
+    }
+
+    private function rateLimitExceededResponse(User $user, RateLimitExceededException $exception): JsonResponse
+    {
+        $message = $exception->getMessage();
+        if (!preg_match('/Rate limit exceeded for ([A-Z_]+)\. Used: (\d+)\/(\d+)/', $message, $matches)) {
+            return $this->json([
+                'success' => false,
+                'code' => 'rate_limit_exceeded',
+                'error' => $message,
+                'upgrade_url' => '/subscription',
+            ], Response::HTTP_TOO_MANY_REQUESTS);
+        }
+
+        return $this->json([
+            'success' => false,
+            'code' => 'rate_limit_exceeded',
+            'error' => $message,
+            'action' => $matches[1],
+            'used' => (int) $matches[2],
+            'limit' => (int) $matches[3],
+            'current_level' => $user->getRateLimitLevel(),
+            'upgrade_url' => '/subscription',
+        ], Response::HTTP_TOO_MANY_REQUESTS);
     }
 
     /**

@@ -125,6 +125,42 @@ function showSessionExpired() {
   document.body.prepend(banner)
 }
 
+function showUpgradePrompt(payload = {}) {
+  const existing = document.querySelector('.mk-upgrade-overlay')
+  if (existing) existing.remove()
+
+  const overlay = h('div', { className: 'mk-overlay mk-upgrade-overlay' })
+  const modal = h('div', { className: 'mk-modal' })
+  const action = payload.action || 'requests'
+  const limitLine = (payload.used != null && payload.limit != null)
+    ? `You have used ${payload.used}/${payload.limit} ${action.toLowerCase()} on the ${payload.current_level || 'current'} plan.`
+    : 'You have reached the usage limit for your current plan.'
+
+  modal.append(
+    h('h3', null, 'Upgrade required'),
+    h('p', { className: 'mk-modal-sub' },
+      payload.error || `${limitLine} Upgrade your account to continue using Marketeer AI features.`),
+    h('div', { className: 'mk-modal-actions' },
+      h('button', {
+        className: 'mk-btn mk-secondary',
+        onClick: () => overlay.remove(),
+      }, 'Not now'),
+      h('button', {
+        className: 'mk-btn mk-primary',
+        onClick: () => {
+          window.location.href = payload.upgrade_url || '/subscription'
+        },
+      }, 'View plans'),
+    ),
+  )
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove()
+  })
+  overlay.append(modal)
+  document.body.append(overlay)
+}
+
 function createApi(baseUrl, userId) {
   const url = (path) => `${baseUrl}/api/v1/user/${userId}/plugins/marketeer${path}`
   let refreshPromise = null
@@ -168,7 +204,15 @@ function createApi(baseUrl, userId) {
       return { success: false, error: `Unexpected server response (${res.status}). Try reloading the page.` }
     }
     if (!res.ok) {
-      try { return await res.json() } catch { return { success: false, error: `Server error (${res.status})` } }
+      try {
+        const data = await res.json()
+        if (res.status === 429 || data?.code === 'rate_limit_exceeded') {
+          showUpgradePrompt(data || {})
+        }
+        return data
+      } catch {
+        return { success: false, error: `Server error (${res.status})` }
+      }
     }
     return res.json()
   }
