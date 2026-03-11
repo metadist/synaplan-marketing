@@ -714,11 +714,7 @@ class MarketeerController extends AbstractController
         if (($extraInstructions === null || trim((string) $extraInstructions) === '') && !empty($campaign['style_prompt'])) {
             $extraInstructions = (string) $campaign['style_prompt'];
         }
-
-        $langCtaUrl = $campaign['cta_urls'][$language] ?? null;
-        if (is_string($langCtaUrl) && trim($langCtaUrl) !== '') {
-            $campaign['cta_url'] = trim($langCtaUrl);
-        }
+        $campaign = $this->applyLanguageSpecificCtaUrl($campaign, $config, $language);
 
         try {
             $systemPrompt = $this->contentGenerator->buildLandingPagePrompt($campaign, $config, $language);
@@ -1007,11 +1003,7 @@ class MarketeerController extends AbstractController
         $language = $data['language'] ?? $config['default_language'];
         $target = $data['target'] ?? 'html';
         $refinementPrompt = $data['prompt'];
-
-        $langCtaUrl = $campaign['cta_urls'][$language] ?? null;
-        if (is_string($langCtaUrl) && trim($langCtaUrl) !== '') {
-            $campaign['cta_url'] = trim($langCtaUrl);
-        }
+        $campaign = $this->applyLanguageSpecificCtaUrl($campaign, $config, $language);
 
         $pageKey = $campaignId . '_' . $language;
         $existingPage = $this->pluginData->get($userId, self::PLUGIN_NAME, self::DATA_TYPE_PAGE, $pageKey);
@@ -1121,6 +1113,7 @@ class MarketeerController extends AbstractController
         $platform = $data['platform'] ?? 'google';
         $config = $this->getPluginConfig($userId);
         $language = $data['language'] ?? $config['default_language'];
+        $campaign = $this->applyLanguageSpecificCtaUrl($campaign, $config, $language);
 
         $allowedPlatforms = ['google', 'linkedin', 'instagram', 'facebook'];
         if (!in_array($platform, $allowedPlatforms, true)) {
@@ -1656,9 +1649,9 @@ class MarketeerController extends AbstractController
         $config = $this->getPluginConfig($userId);
         $language = $data['language'] ?? $config['default_language'];
         $extraInstructions = $data['extra_instructions'] ?? null;
+        $campaign = $this->applyLanguageSpecificCtaUrl($campaign, $config, $language);
 
         try {
-            $campaign['cta_url'] = $campaign['cta_url'] ?? $config['cta_url'];
             $messages = $this->contentGenerator->buildAdsCampaignStructurePrompt($campaign, $config, $language, $extraInstructions);
             $response = $this->callChat($user, $messages, 0.6, 6000);
             $structure = $this->contentGenerator->parseJsonResponse($response['content']);
@@ -2318,6 +2311,32 @@ class MarketeerController extends AbstractController
         }
 
         return $this->configRepository->getValue($userId, self::CONFIG_GROUP, 'enabled') === '1';
+    }
+
+    /**
+     * @param array<string, mixed> $campaign
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>
+     */
+    private function applyLanguageSpecificCtaUrl(array $campaign, array $config, string $language): array
+    {
+        $effectiveCtaUrl = (string) ($campaign['cta_url'] ?? $config['cta_url'] ?? '');
+        $langCtaUrl = $campaign['cta_urls'][$language] ?? null;
+        if (is_string($langCtaUrl) && trim($langCtaUrl) !== '') {
+            $effectiveCtaUrl = trim($langCtaUrl);
+        }
+
+        if ($effectiveCtaUrl === '') {
+            return $campaign;
+        }
+
+        $campaign['cta_url'] = $effectiveCtaUrl;
+
+        if (isset($campaign['ctas'][0]) && is_array($campaign['ctas'][0])) {
+            $campaign['ctas'][0]['url'] = $effectiveCtaUrl;
+        }
+
+        return $campaign;
     }
 
     /**
