@@ -2218,7 +2218,7 @@ class MarketeerController extends AbstractController
         $bidding = $adsCamp['bidding_strategy'] ?? '';
 
         $lines = [
-            $this->csvRow(['Campaign', 'Campaign Daily Budget', 'Bid Strategy Type', 'Ad Group', 'Keyword', 'Match Type', 'Headline 1', 'Headline 2', 'Headline 3', 'Description 1', 'Description 2', 'Final URL']),
+            $this->csvRow(['Row Type', 'Campaign', 'Campaign Daily Budget', 'Bid Strategy Type', 'Ad Group', 'Keyword', 'Match Type', 'Headline 1', 'Headline 2', 'Headline 3', 'Description 1', 'Description 2', 'Final URL']),
         ];
 
         foreach ($adsCamp['ad_groups'] ?? [] as $group) {
@@ -2228,7 +2228,7 @@ class MarketeerController extends AbstractController
                 $keyword = is_array($kw) ? ($kw['keyword'] ?? '') : (string) $kw;
                 $matchType = is_array($kw) ? ($kw['match_type'] ?? 'Broad') : 'Broad';
                 if ($keyword !== '') {
-                    $lines[] = $this->csvRow([(string) $campName, (string) $budget, (string) $bidding, $groupName, $keyword, ucfirst($matchType), '', '', '', '', '', '']);
+                    $lines[] = $this->csvRow(['Keyword', (string) $campName, (string) $budget, (string) $bidding, $groupName, $keyword, ucfirst($matchType), '', '', '', '', '', '']);
                 }
             }
 
@@ -2237,7 +2237,7 @@ class MarketeerController extends AbstractController
                 $descriptions = $ad['descriptions'] ?? [];
                 $finalUrl = $ad['final_url'] ?? $ad['finalUrl'] ?? '';
                 $lines[] = $this->csvRow([
-                    (string) $campName, (string) $budget, (string) $bidding, $groupName, '', '',
+                    'Responsive search ad', (string) $campName, (string) $budget, (string) $bidding, $groupName, '', '',
                     $headlines[0] ?? '', $headlines[1] ?? '', $headlines[2] ?? '',
                     $descriptions[0] ?? '', $descriptions[1] ?? '',
                     (string) $finalUrl,
