@@ -18,6 +18,7 @@ use OpenApi\Attributes as OA;
 use Plugin\Marketeer\Service\AdCopyService;
 use Plugin\Marketeer\Service\ComplianceService;
 use Plugin\Marketeer\Service\ContentGenerator;
+use Plugin\Marketeer\Service\GoogleAdsEditorCsvBuilder;
 use Plugin\Marketeer\Service\GoogleAdsPlannerService;
 use Plugin\Marketeer\Service\LandingPageService;
 use Plugin\Marketeer\Service\MarketeerInstallService;
@@ -715,6 +716,11 @@ class MarketeerController extends AbstractController
             $extraInstructions = (string) $campaign['style_prompt'];
         }
         $campaign = $this->applyLanguageSpecificCtaUrl($campaign, $config, $language);
+
+        $ogCollateral = $this->adCopyService->getCollateral($userId, $campaignId, 'og', $language);
+        if (null !== $ogCollateral && !empty($ogCollateral['file'])) {
+            $campaign['og_image_url'] = 'images/og.png';
+        }
 
         try {
             $systemPrompt = $this->contentGenerator->buildLandingPagePrompt($campaign, $config, $language);
@@ -2149,7 +2155,7 @@ class MarketeerController extends AbstractController
                 $campName = $adsCamp['campaign_name'] ?? $adsId;
 
                 foreach ($adsCamp['ad_groups'] ?? [] as $group) {
-                    $groupName = $group['ad_group_name'] ?? 'Default';
+                    $groupName = $group['name'] ?? $group['ad_group_name'] ?? 'Default';
                     foreach ($group['keywords'] ?? [] as $kw) {
                         $keyword = is_array($kw) ? ($kw['keyword'] ?? '') : (string) $kw;
                         $matchType = is_array($kw) ? ($kw['match_type'] ?? 'Broad') : 'Broad';
@@ -2210,47 +2216,19 @@ class MarketeerController extends AbstractController
      */
     private function addGoogleAdsEditorCsv(\ZipArchive $zip, string $slug, array $adsCamp): void
     {
+        $csv = GoogleAdsEditorCsvBuilder::build($adsCamp);
+        if ($csv === '') {
+            return;
+        }
+
         $adsId = $adsCamp['id'] ?? 'unknown';
         $adsLang = $adsCamp['language'] ?? 'all';
         $adsName = preg_replace('/[^a-z0-9_-]/i', '_', $adsCamp['campaign_name'] ?? $adsId);
-        $campName = $adsCamp['campaign_name'] ?? $adsId;
-        $budget = $adsCamp['daily_budget_suggestion'] ?? '';
-        $bidding = $adsCamp['bidding_strategy'] ?? '';
 
-        $lines = [
-            $this->csvRow(['Row Type', 'Campaign', 'Campaign Daily Budget', 'Bid Strategy Type', 'Ad Group', 'Keyword', 'Match Type', 'Headline 1', 'Headline 2', 'Headline 3', 'Description 1', 'Description 2', 'Final URL']),
-        ];
-
-        foreach ($adsCamp['ad_groups'] ?? [] as $group) {
-            $groupName = $group['ad_group_name'] ?? 'Default';
-
-            foreach ($group['keywords'] ?? [] as $kw) {
-                $keyword = is_array($kw) ? ($kw['keyword'] ?? '') : (string) $kw;
-                $matchType = is_array($kw) ? ($kw['match_type'] ?? 'Broad') : 'Broad';
-                if ($keyword !== '') {
-                    $lines[] = $this->csvRow(['Keyword', (string) $campName, (string) $budget, (string) $bidding, $groupName, $keyword, ucfirst($matchType), '', '', '', '', '', '']);
-                }
-            }
-
-            foreach ($group['ads'] ?? [] as $ad) {
-                $headlines = $ad['headlines'] ?? [];
-                $descriptions = $ad['descriptions'] ?? [];
-                $finalUrl = $ad['final_url'] ?? $ad['finalUrl'] ?? '';
-                $lines[] = $this->csvRow([
-                    'Responsive search ad', (string) $campName, (string) $budget, (string) $bidding, $groupName, '', '',
-                    $headlines[0] ?? '', $headlines[1] ?? '', $headlines[2] ?? '',
-                    $descriptions[0] ?? '', $descriptions[1] ?? '',
-                    (string) $finalUrl,
-                ]);
-            }
-        }
-
-        if (count($lines) > 1) {
-            $zip->addFromString(
-                "{$slug}/google-ads/{$adsName}_{$adsLang}_google-ads-editor.csv",
-                implode("\n", $lines) . "\n",
-            );
-        }
+        $zip->addFromString(
+            "{$slug}/google-ads/{$adsName}_{$adsLang}_google-ads-editor.csv",
+            $csv,
+        );
     }
 
     #[Route('/campaigns/{campaignId}/file/{filePath}', name: 'campaign_file_serve', requirements: ['filePath' => '.+'], methods: ['GET'])]
@@ -2477,13 +2455,23 @@ class MarketeerController extends AbstractController
 
     /**
      * @param array<string, mixed> $options
+     *
      * @return array<string, mixed>
      */
     private function generateImageForUser(User $user, string $prompt, array $options = []): array
     {
         $this->assertRateLimit($user, 'IMAGES');
 
-        $result = $this->aiFacade->generateImage((string) $prompt, (int) $user->getId(), $options);
+        $userId = (int) $user->getId();
+        if (empty($options['provider']) || empty($options['model'])) {
+            $modelId = $this->modelConfigService->getDefaultModel('TEXT2PIC', $userId);
+            if ($modelId) {
+                $options['provider'] ??= $this->modelConfigService->getProviderForModel($modelId);
+                $options['model'] ??= $this->modelConfigService->getModelName($modelId);
+            }
+        }
+
+        $result = $this->aiFacade->generateImage((string) $prompt, $userId, $options);
 
         $this->rateLimitService->recordUsage($user, 'IMAGES', [
             'provider' => $result['provider'] ?? '',
@@ -2497,13 +2485,23 @@ class MarketeerController extends AbstractController
 
     /**
      * @param array<string, mixed> $options
+     *
      * @return array<string, mixed>
      */
     private function generateVideoForUser(User $user, string $prompt, array $options = []): array
     {
         $this->assertRateLimit($user, 'VIDEOS');
 
-        $result = $this->aiFacade->generateVideo((string) $prompt, (int) $user->getId(), $options);
+        $userId = (int) $user->getId();
+        if (empty($options['provider']) || empty($options['model'])) {
+            $modelId = $this->modelConfigService->getDefaultModel('TEXT2VID', $userId);
+            if ($modelId) {
+                $options['provider'] ??= $this->modelConfigService->getProviderForModel($modelId);
+                $options['model'] ??= $this->modelConfigService->getModelName($modelId);
+            }
+        }
+
+        $result = $this->aiFacade->generateVideo((string) $prompt, $userId, $options);
 
         $this->rateLimitService->recordUsage($user, 'VIDEOS', [
             'provider' => $result['provider'] ?? '',

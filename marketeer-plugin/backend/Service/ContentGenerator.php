@@ -164,6 +164,12 @@ MODAL;
 
         $template = trim($customPrompt) !== '' ? $customPrompt : self::DEFAULT_LANDING_PAGE_PROMPT;
 
+        $ogImageUrl = trim((string) ($campaign['og_image_url'] ?? ''));
+        $ogImageMeta = '' !== $ogImageUrl
+            ? "- <meta property=\"og:image\" content=\"{$ogImageUrl}\"> and <meta name=\"twitter:image\" content=\"{$ogImageUrl}\">"
+            : '- <!-- MISSING: og:image not yet generated – run "Generate Image" with type "og" in the Media section first -->'."\n"
+              .'  <meta property="og:image" content="images/og.png"> and <meta name="twitter:image" content="images/og.png">';
+
         $replacements = [
             '{{language}}' => $langName,
             '{{brand_name}}' => $brandName,
@@ -188,6 +194,7 @@ MODAL;
             '{{modal_section}}' => $modalSection,
             '{{cta_buttons}}' => $ctaButtons,
             '{{usp_list}}' => $uspList,
+            '{{og_image_meta}}' => $ogImageMeta,
         ];
 
         return str_replace(array_keys($replacements), array_values($replacements), $template);
@@ -260,7 +267,7 @@ DESIGN — follow this EXACT layout:
 10. Below the card: div.imprint with two links (Privacy → {{privacy_url}}, Imprint → {{imprint_url}}), font-size:0.75rem, color:#666, a:hover color:#fff.{{logo_section}}
 {{modal_section}}
 COOKIE CONSENT — div#cookiebar AFTER all content, BEFORE </body>:
-- Style: background:#1a1a2e, padding:16px 24px, text-align:center, font-size:13px, color:#fff, display:flex, align-items:center, justify-content:center, flex-wrap:wrap, gap:12px.
+- Style: position:fixed, bottom:0, left:0, right:0, z-index:9999, background:#1a1a2e, padding:16px 24px, text-align:center, font-size:13px, color:#fff, display:flex, align-items:center, justify-content:center, flex-wrap:wrap, gap:12px, box-shadow:0 -2px 10px rgba(0,0,0,0.3).
 - Inner: <span> with cookie text + <a href="{{privacy_url}}" style="color:{{accent_color}}">Privacy Policy</a>.
 - Two buttons: "Essential only" (background:transparent, border:1px solid #fff, color:#fff, padding:8px 16px, border-radius:6px, cursor:pointer, font-size:13px) and "Accept all" (background:{{accent_color}}, border:none, color:#fff, padding:8px 16px, border-radius:6px, cursor:pointer, font-weight:600, font-size:13px).
 - "Essential only" onclick: document.getElementById('cookiebar').style.display='none'
@@ -270,7 +277,10 @@ COOKIE CONSENT — div#cookiebar AFTER all content, BEFORE </body>:
 TECHNICAL:
 - Self-contained HTML, inline <style>.
 - Google Fonts: Inter (300,400,600,700,900) and Roboto Slab (400,700,900).
-- <meta charset="UTF-8">, <meta viewport>, <title>, <meta description>, OG + Twitter Card tags.
+- <meta charset="UTF-8">, <meta viewport>, <title>, <meta description>.
+- OG tags: <meta property="og:title">, <meta property="og:description">, <meta property="og:type" content="website">.
+{{og_image_meta}}
+- Twitter Card: <meta name="twitter:card" content="summary_large_image">, <meta name="twitter:title">, <meta name="twitter:description">.
 - Buzzword text: 30-40 topic-relevant terms, duplicated per row for seamless loop.{{cta_buttons}}{{usp_list}}
 
 Output ONLY the complete HTML. No markdown. Start with <!DOCTYPE html>.
