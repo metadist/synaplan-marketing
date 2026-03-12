@@ -34,7 +34,13 @@ final class GoogleAdsEditorCsvBuilder
     private const COL_FINAL_URL = 31;
     private const COL_PATH_1 = 32;
     private const COL_PATH_2 = 33;
-    private const COL_STATUS = 34;
+    private const COL_LINK_TEXT = 34;
+    private const COL_DESC_LINE_1 = 35;
+    private const COL_DESC_LINE_2 = 36;
+    private const COL_CALLOUT_TEXT = 37;
+    private const COL_HEADER = 38;
+    private const COL_SNIPPET_VALUES = 39;
+    private const COL_STATUS = 40;
 
     private const HEADERS = [
         'Campaign',
@@ -71,6 +77,12 @@ final class GoogleAdsEditorCsvBuilder
         'Final URL',
         'Path 1',
         'Path 2',
+        'Link Text',
+        'Description Line 1',
+        'Description Line 2',
+        'Callout text',
+        'Header',
+        'Snippet Values',
         'Status',
     ];
 
@@ -135,10 +147,42 @@ final class GoogleAdsEditorCsvBuilder
             }
         }
 
-        $lines = array_map([self::class, 'encodeTsvRow'], $rows);
-        $tsv = implode("\r\n", $lines) . "\r\n";
+        $extensions = $adsCampaign['extensions_suggestions'] ?? [];
+        if (!empty($extensions['sitelinks'])) {
+            foreach ($extensions['sitelinks'] as $sitelink) {
+                $rows[] = self::sitelinkRow($campName, $sitelink);
+            }
+        }
+        if (!empty($extensions['callouts'])) {
+            foreach ($extensions['callouts'] as $callout) {
+                $rows[] = self::calloutRow($campName, (string) $callout);
+            }
+        }
+        if (!empty($extensions['structured_snippets']) && !empty($extensions['structured_snippets']['header'])) {
+            $header = (string) $extensions['structured_snippets']['header'];
+            $values = $extensions['structured_snippets']['values'] ?? [];
+            if (!empty($values)) {
+                $rows[] = self::structuredSnippetRow($campName, $header, $values);
+            }
+        }
 
-        return "\xEF\xBB\xBF" . $tsv;
+        $fp = fopen('php://temp', 'r+');
+        if ($fp === false) {
+            return '';
+        }
+
+        // Write UTF-8 BOM for Excel/Google Ads Editor compatibility
+        fwrite($fp, "\xEF\xBB\xBF");
+
+        foreach ($rows as $row) {
+            fputcsv($fp, $row, ',', '"', "\\");
+        }
+
+        rewind($fp);
+        $csv = stream_get_contents($fp);
+        fclose($fp);
+
+        return $csv !== false ? $csv : '';
     }
 
     /**
@@ -229,6 +273,7 @@ final class GoogleAdsEditorCsvBuilder
         $row = self::emptyRow();
         $row[self::COL_CAMPAIGN] = $campName;
         $row[self::COL_AD_GROUP] = $groupName;
+        $row[self::COL_TYPE] = 'Responsive search ad';
 
         $headlineCount = min(15, count($headlines));
         for ($i = 0; $i < $headlineCount; $i++) {
@@ -257,23 +302,49 @@ final class GoogleAdsEditorCsvBuilder
     }
 
     /**
-     * Encode a row as tab-separated values.
-     * Fields containing tabs, newlines, or double quotes are enclosed per RFC 4180.
+     * @param array<string, mixed> $sitelink
      *
-     * @param string[] $fields
+     * @return string[]
      */
-    private static function encodeTsvRow(array $fields): string
+    private static function sitelinkRow(string $campName, array $sitelink): array
     {
-        $encoded = [];
-        foreach ($fields as $field) {
-            $field = (string) $field;
-            if (str_contains($field, "\t") || str_contains($field, "\n") || str_contains($field, "\r") || str_contains($field, '"')) {
-                $encoded[] = '"' . str_replace('"', '""', $field) . '"';
-            } else {
-                $encoded[] = $field;
-            }
-        }
+        $row = self::emptyRow();
+        $row[self::COL_CAMPAIGN] = $campName;
+        $row[self::COL_LINK_TEXT] = (string) ($sitelink['title'] ?? '');
+        $row[self::COL_FINAL_URL] = (string) ($sitelink['url'] ?? '');
+        $row[self::COL_DESC_LINE_1] = (string) ($sitelink['description_1'] ?? $sitelink['description'] ?? '');
+        $row[self::COL_DESC_LINE_2] = (string) ($sitelink['description_2'] ?? '');
+        $row[self::COL_STATUS] = 'Enabled';
 
-        return implode("\t", $encoded);
+        return $row;
+    }
+
+    /**
+     * @return string[]
+     */
+    private static function calloutRow(string $campName, string $callout): array
+    {
+        $row = self::emptyRow();
+        $row[self::COL_CAMPAIGN] = $campName;
+        $row[self::COL_CALLOUT_TEXT] = $callout;
+        $row[self::COL_STATUS] = 'Enabled';
+
+        return $row;
+    }
+
+    /**
+     * @param string[] $values
+     *
+     * @return string[]
+     */
+    private static function structuredSnippetRow(string $campName, string $header, array $values): array
+    {
+        $row = self::emptyRow();
+        $row[self::COL_CAMPAIGN] = $campName;
+        $row[self::COL_HEADER] = $header;
+        $row[self::COL_SNIPPET_VALUES] = implode(';', $values);
+        $row[self::COL_STATUS] = 'Enabled';
+
+        return $row;
     }
 }

@@ -691,8 +691,9 @@ Output as valid JSON only (no markdown):
       "negative_keywords": ["negative1", "negative2"],
       "ads": [
         {
-          "headlines": ["h1 (max 30 chars)", "h2", "h3"],
-          "descriptions": ["desc1 (max 90 chars)", "desc2"],
+          "type": "Responsive search ad",
+          "headlines": ["h1 (max 30 chars)", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9", "h10", "h11", "h12", "h13", "h14", "h15"],
+          "descriptions": ["desc1 (max 90 chars)", "desc2", "desc3", "desc4"],
           "final_url": "{$landingPageUrl}",
           "display_path": ["path1", "path2"]
         }
@@ -701,14 +702,14 @@ Output as valid JSON only (no markdown):
   ],
   "campaign_negative_keywords": ["free trial competitor", "jobs"],
   "extensions_suggestions": {
-    "sitelinks": [{"title": "...", "url": "{$landingPageUrl}", "description": "..."}],
+    "sitelinks": [{"title": "...", "url": "{$landingPageUrl}", "description_1": "...", "description_2": "..."}],
     "callouts": ["callout1", "callout2"],
     "structured_snippets": {"header": "Types", "values": ["val1", "val2"]}
   },
   "best_practices_notes": ["tip1", "tip2"]
 }
 
-Create 3-5 tightly themed ad groups. Each ad group should have 10-20 keywords with mixed match types, and 2-3 ad variations.
+Create 3-5 tightly themed ad groups. Each ad group should have 10-20 keywords with mixed match types, and exactly 1 Responsive Search Ad with 15 highly relevant headlines (mix of features, benefits, and CTAs) and 4 descriptions.
 
 Language: {$langName}
 PROMPT;
