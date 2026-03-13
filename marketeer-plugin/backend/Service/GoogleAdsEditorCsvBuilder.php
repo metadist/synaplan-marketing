@@ -26,21 +26,23 @@ final class GoogleAdsEditorCsvBuilder
     private const COL_BID_STRATEGY_TYPE = 6;
     private const COL_CAMPAIGN_STATUS = 7;
     private const COL_AD_GROUP = 8;
-    private const COL_AD_GROUP_STATUS = 9;
-    private const COL_KEYWORD = 10;
-    private const COL_TYPE = 11;
-    private const COL_HEADLINE_START = 12;
-    private const COL_DESCRIPTION_START = 27;
-    private const COL_FINAL_URL = 31;
-    private const COL_PATH_1 = 32;
-    private const COL_PATH_2 = 33;
-    private const COL_LINK_TEXT = 34;
-    private const COL_DESC_LINE_1 = 35;
-    private const COL_DESC_LINE_2 = 36;
-    private const COL_CALLOUT_TEXT = 37;
-    private const COL_HEADER = 38;
-    private const COL_SNIPPET_VALUES = 39;
-    private const COL_STATUS = 40;
+    private const COL_AD_GROUP_TYPE = 9;
+    private const COL_MAX_CPC = 10;
+    private const COL_AD_GROUP_STATUS = 11;
+    private const COL_KEYWORD = 12;
+    private const COL_CRITERION_TYPE = 13;
+    private const COL_HEADLINE_START = 14;
+    private const COL_DESCRIPTION_START = 29;
+    private const COL_FINAL_URL = 33;
+    private const COL_PATH_1 = 34;
+    private const COL_PATH_2 = 35;
+    private const COL_LINK_TEXT = 36;
+    private const COL_DESC_LINE_1 = 37;
+    private const COL_DESC_LINE_2 = 38;
+    private const COL_CALLOUT_TEXT = 39;
+    private const COL_HEADER = 40;
+    private const COL_SNIPPET_VALUES = 41;
+    private const COL_STATUS = 42;
 
     private const HEADERS = [
         'Campaign',
@@ -52,9 +54,11 @@ final class GoogleAdsEditorCsvBuilder
         'Bid Strategy Type',
         'Campaign Status',
         'Ad Group',
+        'Ad Group Type',
+        'Max CPC',
         'Ad Group Status',
         'Keyword',
-        'Type',
+        'Criterion Type',
         'Headline 1',
         'Headline 2',
         'Headline 3',
@@ -211,6 +215,7 @@ final class GoogleAdsEditorCsvBuilder
         $row = self::emptyRow();
         $row[self::COL_CAMPAIGN] = $campName;
         $row[self::COL_AD_GROUP] = $groupName;
+        $row[self::COL_AD_GROUP_TYPE] = 'Default';
         $row[self::COL_AD_GROUP_STATUS] = 'Enabled';
 
         return $row;
@@ -224,8 +229,8 @@ final class GoogleAdsEditorCsvBuilder
         $row = self::emptyRow();
         $row[self::COL_CAMPAIGN] = $campName;
         $row[self::COL_AD_GROUP] = $groupName;
-        $row[self::COL_KEYWORD] = $keyword;
-        $row[self::COL_TYPE] = ucfirst(strtolower($matchType));
+        $row[self::COL_KEYWORD] = self::formatKeywordWithMatchType($keyword, $matchType);
+        $row[self::COL_CRITERION_TYPE] = ucfirst(strtolower($matchType));
         $row[self::COL_STATUS] = 'Enabled';
 
         return $row;
@@ -240,7 +245,7 @@ final class GoogleAdsEditorCsvBuilder
         $row[self::COL_CAMPAIGN] = $campName;
         $row[self::COL_AD_GROUP] = $groupName;
         $row[self::COL_KEYWORD] = $keyword;
-        $row[self::COL_TYPE] = 'Negative';
+        $row[self::COL_CRITERION_TYPE] = 'Negative';
 
         return $row;
     }
@@ -253,7 +258,7 @@ final class GoogleAdsEditorCsvBuilder
         $row = self::emptyRow();
         $row[self::COL_CAMPAIGN] = $campName;
         $row[self::COL_KEYWORD] = $keyword;
-        $row[self::COL_TYPE] = 'Campaign negative';
+        $row[self::COL_CRITERION_TYPE] = 'Campaign negative';
 
         return $row;
     }
@@ -273,7 +278,7 @@ final class GoogleAdsEditorCsvBuilder
         $row = self::emptyRow();
         $row[self::COL_CAMPAIGN] = $campName;
         $row[self::COL_AD_GROUP] = $groupName;
-        $row[self::COL_TYPE] = 'Responsive search ad';
+        $row[self::COL_CRITERION_TYPE] = 'Responsive search ad';
 
         $headlineCount = min(15, count($headlines));
         for ($i = 0; $i < $headlineCount; $i++) {
@@ -291,6 +296,19 @@ final class GoogleAdsEditorCsvBuilder
         $row[self::COL_STATUS] = 'Enabled';
 
         return $row;
+    }
+
+    /**
+     * Format keyword text with match type notation so it matches the Criterion Type column.
+     * Broad = plain text, Phrase = "quoted", Exact = [bracketed].
+     */
+    private static function formatKeywordWithMatchType(string $keyword, string $matchType): string
+    {
+        return match (strtolower($matchType)) {
+            'phrase' => '"' . $keyword . '"',
+            'exact' => '[' . $keyword . ']',
+            default => $keyword,
+        };
     }
 
     /**
