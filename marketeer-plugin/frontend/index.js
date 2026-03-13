@@ -346,6 +346,7 @@ export default {
 
     const root = h('div', { className: 'mk' })
     el.append(root)
+    el.append(h('div', { style: { padding: '6px 2px 0', fontSize: '10px', opacity: 0.4, color: '#888' } }, `Marketeer ${MK_VERSION} · ${MK_BUILD}`))
 
     let cachedConfig = null
 
@@ -452,7 +453,6 @@ export default {
       else if (p === 'new') renderNewCampaign()
       else if (p === 'campaign') renderCampaignDetail()
       else if (p === 'config') renderConfig()
-      root.append(h('div', { style: { textAlign: 'right', padding: '12px 4px 0', fontSize: '11px', color: '#888', opacity: 0.5 } }, `Marketeer ${MK_VERSION} · ${MK_BUILD}`))
     }
 
     // ── Dashboard ────────────────────────────────────────────────────────
