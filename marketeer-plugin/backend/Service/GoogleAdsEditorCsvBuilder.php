@@ -31,18 +31,19 @@ final class GoogleAdsEditorCsvBuilder
     private const COL_AD_GROUP_STATUS = 11;
     private const COL_KEYWORD = 12;
     private const COL_CRITERION_TYPE = 13;
-    private const COL_HEADLINE_START = 14;
-    private const COL_DESCRIPTION_START = 29;
-    private const COL_FINAL_URL = 33;
-    private const COL_PATH_1 = 34;
-    private const COL_PATH_2 = 35;
-    private const COL_LINK_TEXT = 36;
-    private const COL_DESC_LINE_1 = 37;
-    private const COL_DESC_LINE_2 = 38;
-    private const COL_CALLOUT_TEXT = 39;
-    private const COL_HEADER = 40;
-    private const COL_SNIPPET_VALUES = 41;
-    private const COL_STATUS = 42;
+    private const COL_AD_TYPE = 14;
+    private const COL_HEADLINE_START = 15;
+    private const COL_DESCRIPTION_START = 30;
+    private const COL_FINAL_URL = 34;
+    private const COL_PATH_1 = 35;
+    private const COL_PATH_2 = 36;
+    private const COL_LINK_TEXT = 37;
+    private const COL_DESC_LINE_1 = 38;
+    private const COL_DESC_LINE_2 = 39;
+    private const COL_CALLOUT_TEXT = 40;
+    private const COL_HEADER = 41;
+    private const COL_SNIPPET_VALUES = 42;
+    private const COL_STATUS = 43;
 
     private const HEADERS = [
         'Campaign',
@@ -59,6 +60,7 @@ final class GoogleAdsEditorCsvBuilder
         'Ad Group Status',
         'Keyword',
         'Criterion Type',
+        'Ad type',
         'Headline 1',
         'Headline 2',
         'Headline 3',
@@ -278,7 +280,7 @@ final class GoogleAdsEditorCsvBuilder
         $row = self::emptyRow();
         $row[self::COL_CAMPAIGN] = $campName;
         $row[self::COL_AD_GROUP] = $groupName;
-        $row[self::COL_CRITERION_TYPE] = 'Responsive search ad';
+        $row[self::COL_AD_TYPE] = 'Responsive search ad';
 
         $headlineCount = min(15, count($headlines));
         for ($i = 0; $i < $headlineCount; $i++) {
