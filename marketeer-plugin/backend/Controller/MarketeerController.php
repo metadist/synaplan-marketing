@@ -41,6 +41,7 @@ class MarketeerController extends AbstractController
     private const DATA_TYPE_CAMPAIGN = 'campaign';
     private const DATA_TYPE_PAGE = 'page';
     private const DATA_TYPE_PUBLIC_PAGE = 'public_page';
+    private const MAX_GOOGLE_AD_HEADLINE_LENGTH = 30;
 
     public function __construct(
         private AiFacade $aiFacade,
@@ -1663,6 +1664,7 @@ class MarketeerController extends AbstractController
             $messages = $this->contentGenerator->buildAdsCampaignStructurePrompt($campaign, $config, $language, $extraInstructions);
             $response = $this->callChat($user, $messages, 0.6, 6000);
             $structure = $this->contentGenerator->parseJsonResponse($response['content']);
+            $structure = $this->repairGeneratedAdsCampaignHeadlines($user, $structure, $language);
 
             $structure['language'] = $language;
             $structure['generated_at'] = (new \DateTimeImmutable())->format('c');
@@ -2388,6 +2390,149 @@ class MarketeerController extends AbstractController
         }
 
         return $effectiveFinalUrl;
+    }
+
+    /**
+     * @param array<string, mixed> $structure
+     * @return array<string, mixed>
+     */
+    private function repairGeneratedAdsCampaignHeadlines(User $user, array $structure, string $language): array
+    {
+        foreach ($structure['ad_groups'] ?? [] as $groupIndex => $group) {
+            if (!is_array($group)) {
+                continue;
+            }
+
+            foreach ($group['ads'] ?? [] as $adIndex => $ad) {
+                if (!is_array($ad)) {
+                    continue;
+                }
+
+                $headlines = is_array($ad['headlines'] ?? null) ? $ad['headlines'] : [];
+                $repairedHeadlines = $this->repairHeadlinesForAd($user, $headlines, $language);
+                $structure['ad_groups'][$groupIndex]['ads'][$adIndex]['headlines'] = $repairedHeadlines;
+            }
+        }
+
+        return $structure;
+    }
+
+    /**
+     * @param array<int, mixed> $headlines
+     * @return string[]
+     */
+    private function repairHeadlinesForAd(User $user, array $headlines, string $language): array
+    {
+        $normalized = array_map(static fn (mixed $headline): string => trim((string) $headline), $headlines);
+        $invalidIndexes = [];
+        $validPool = [];
+
+        foreach ($normalized as $index => $headline) {
+            if ($headline !== '' && mb_strlen($headline) <= self::MAX_GOOGLE_AD_HEADLINE_LENGTH) {
+                $validPool[] = $headline;
+                continue;
+            }
+
+            $invalidIndexes[] = $index;
+        }
+
+        if ($invalidIndexes === []) {
+            return $normalized;
+        }
+
+        $rewrittenHeadlines = $this->requestReplacementHeadlines($user, $normalized, $invalidIndexes, $validPool, $language);
+
+        foreach ($invalidIndexes as $rewriteOffset => $headlineIndex) {
+            $replacement = $rewrittenHeadlines[$rewriteOffset] ?? '';
+            $replacement = trim((string) $replacement);
+
+            if ($replacement === '' || mb_strlen($replacement) > self::MAX_GOOGLE_AD_HEADLINE_LENGTH) {
+                $replacement = $validPool[0] ?? $this->truncateHeadline($normalized[$headlineIndex]);
+            }
+
+            if ($replacement === '') {
+                $replacement = 'Learn more';
+            }
+
+            $normalized[$headlineIndex] = $replacement;
+            if (mb_strlen($replacement) <= self::MAX_GOOGLE_AD_HEADLINE_LENGTH) {
+                $validPool[] = $replacement;
+            }
+        }
+
+        foreach ($normalized as $index => $headline) {
+            if ($headline !== '' && mb_strlen($headline) <= self::MAX_GOOGLE_AD_HEADLINE_LENGTH) {
+                continue;
+            }
+
+            $normalized[$index] = $validPool[0] ?? $this->truncateHeadline($headline);
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param string[] $headlines
+     * @param int[] $invalidIndexes
+     * @param string[] $validPool
+     * @return string[]
+     */
+    private function requestReplacementHeadlines(
+        User $user,
+        array $headlines,
+        array $invalidIndexes,
+        array $validPool,
+        string $language,
+    ): array {
+        $headlinesToRewrite = array_map(
+            static fn (int $index): string => $headlines[$index] ?? '',
+            $invalidIndexes,
+        );
+
+        $messages = [
+            [
+                'role' => 'system',
+                'content' => 'You rewrite Google Ads headlines. Return valid JSON only with the shape {"headlines":["..."]}. '
+                    . 'Rewrite exactly one headline for each input headline. Keep the same language and intent. '
+                    . 'Every headline must be at most 30 characters including spaces. No markdown.',
+            ],
+            [
+                'role' => 'user',
+                'content' => "Language: {$language}\n"
+                    . 'Max headline length: 30 characters.' . "\n"
+                    . 'Existing safe headlines you may reuse or duplicate if needed: '
+                    . json_encode(array_values($validPool), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n"
+                    . 'Rewrite these too-long headlines into concise Google Ads headlines: '
+                    . json_encode(array_values($headlinesToRewrite), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ],
+        ];
+
+        try {
+            $response = $this->callChat($user, $messages, 0.2, 800);
+            $parsed = $this->contentGenerator->parseJsonResponse((string) ($response['content'] ?? ''));
+            $rewritten = $parsed['headlines'] ?? null;
+
+            if (!is_array($rewritten)) {
+                return [];
+            }
+
+            $rewritten = array_map(static fn (mixed $headline): string => trim((string) $headline), $rewritten);
+
+            return count($rewritten) === count($invalidIndexes) ? $rewritten : [];
+        } catch (\Throwable $e) {
+            $this->logger->warning('Marketeer headline repair fallback used', [
+                'user_id' => $user->getId(),
+                'language' => $language,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
+    }
+
+    private function truncateHeadline(string $headline): string
+    {
+        return trim(mb_substr($headline, 0, self::MAX_GOOGLE_AD_HEADLINE_LENGTH));
     }
 
     private function isValidHttpUrl(string $url): bool
