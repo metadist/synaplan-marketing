@@ -1,4 +1,4 @@
-const MK_VERSION = 'v1.0.2'
+const MK_VERSION = 'v1.0.3'
 const MK_BUILD = new Date().toISOString().replace(/[-T:]/g, (m) => m === 'T' ? '-' : m === '-' ? '' : '').slice(0, 15)
 
 const LANGS = [
@@ -446,6 +446,110 @@ export default {
       document.body.append(overlay)
     }
 
+    function getEffectiveFinalUrl(campaign, lang) {
+      const override = ((campaign.final_urls || {})[lang] || '').trim()
+      if (override) return override
+      return (campaign.final_url || '').trim()
+    }
+
+    async function downloadCampaignZip(campaign) {
+      const draft = {
+        final_url: (campaign.final_url || campaign.cta_url || '').trim(),
+        final_urls: { ...(campaign.final_urls || {}) },
+      }
+      const missingLangs = (campaign.languages || []).filter(lang => !getEffectiveFinalUrl(draft, lang))
+
+      if (missingLangs.length === 0) {
+        window.location.href = api.downloadUrl(`/campaigns/${campaign.id}/download`)
+        return
+      }
+
+      const existing = document.querySelector('.mk-overlay')
+      if (existing) existing.remove()
+
+      const overlay = h('div', { className: 'mk-overlay' })
+      const modal = h('div', { className: 'mk-modal' })
+      modal.append(
+        h('h3', null, 'Set final landing page URLs'),
+        h('p', { className: 'mk-modal-sub' },
+          'Google Ads export needs a real final URL for each landing page language. Set a default URL once and optionally override individual languages.'),
+      )
+
+      const defaultWrap = h('div', { className: 'mk-field' })
+      defaultWrap.append(h('label', { className: 'mk-label' }, 'Default Google Ads Final URL'))
+      const defaultInput = h('input', {
+        className: 'mk-input',
+        value: draft.final_url,
+        placeholder: campaign.cta_url || 'https://your-site.com/landing-page',
+      })
+      defaultWrap.append(defaultInput)
+      modal.append(defaultWrap)
+
+      const overrideInputs = {}
+      ;(campaign.languages || []).forEach(lang => {
+        const wrap = h('div', { className: 'mk-field' })
+        wrap.append(h('label', { className: 'mk-label' }, `Override for ${langLabel(lang)} (optional)`))
+        const input = h('input', {
+          className: 'mk-input',
+          value: (draft.final_urls[lang] || '').trim(),
+          placeholder: 'Uses default final URL when empty',
+        })
+        overrideInputs[lang] = input
+        wrap.append(input)
+        modal.append(wrap)
+      })
+
+      const actions = h('div', { className: 'mk-modal-actions' })
+      actions.append(h('button', { className: 'mk-btn mk-secondary', onClick: () => overlay.remove() }, 'Cancel'))
+
+      const saveBtn = h('button', { className: 'mk-btn mk-primary' }, 'Save & Download ZIP')
+      saveBtn.addEventListener('click', async () => {
+        const final_url = defaultInput.value.trim()
+        const final_urls = {}
+        let hasError = false
+
+        defaultInput.style.borderColor = ''
+        Object.values(overrideInputs).forEach(input => { input.style.borderColor = '' })
+
+        for (const lang of campaign.languages || []) {
+          const override = overrideInputs[lang].value.trim()
+          if (override) final_urls[lang] = override
+          const effective = override || final_url
+          if (!isValidUrl(effective)) {
+            hasError = true
+            if (override) overrideInputs[lang].style.borderColor = '#c0392b'
+            else defaultInput.style.borderColor = '#c0392b'
+          }
+        }
+
+        if (hasError) {
+          toast('Please enter a valid final URL for every language.', true)
+          return
+        }
+
+        saveBtn.disabled = true
+        saveBtn.innerHTML = '<span class="mk-spinner"></span> Saving...'
+        const r = await api.put(`/campaigns/${campaign.id}`, { final_url, final_urls })
+        if (!r.success) {
+          toast(r.error || 'Failed to save final URLs', true)
+          saveBtn.disabled = false
+          saveBtn.textContent = 'Save & Download ZIP'
+          return
+        }
+
+        campaign.final_url = final_url
+        campaign.final_urls = final_urls
+        overlay.remove()
+        window.location.href = api.downloadUrl(`/campaigns/${campaign.id}/download`)
+      })
+      actions.append(saveBtn)
+      modal.append(actions)
+
+      overlay.append(modal)
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove() })
+      document.body.append(overlay)
+    }
+
     function render() {
       root.innerHTML = ''
       const p = state.page
@@ -678,7 +782,7 @@ export default {
           h('h2', null, c.title),
           h('div', { className: 'mk-row' },
             h('span', { className: `mk-badge mk-badge-${c.status}` }, c.status),
-            h('a', { href: api.downloadUrl(`/campaigns/${c.id}/download`), className: 'mk-btn mk-secondary', style: { textDecoration: 'none' } }, '📦 Download ZIP'),
+            h('button', { className: 'mk-btn mk-secondary', onClick: () => downloadCampaignZip(c) }, '📦 Download ZIP'),
           ),
         ),
         h('p', { className: 'mk-sub' }, (c.languages || []).map(l => langLabel(l)).join(' · ') + ' — ' + (c.platforms || []).map(p => PLATFORMS.find(x => x.id === p)?.label || p).join(', ')),
@@ -761,6 +865,7 @@ export default {
         ))
 
         const ctaUrls = campaign.cta_urls || {}
+        const finalUrls = campaign.final_urls || {}
         const ctaRow = h('div', { className: 'mk-field', style: { marginTop: '8px', marginBottom: '8px' } })
         const ctaLabel = h('label', { className: 'mk-label' }, 'CTA Target URL for ' + langLabel(lang))
         const ctaInput = h('input', {
@@ -780,6 +885,27 @@ export default {
         })
         ctaRow.append(ctaLabel, ctaInput)
         card.append(ctaRow)
+
+        const finalRow = h('div', { className: 'mk-field', style: { marginTop: '8px', marginBottom: '8px' } })
+        const finalLabel = h('label', { className: 'mk-label' }, 'Google Ads Final URL for ' + langLabel(lang))
+        const finalInput = h('input', {
+          className: 'mk-input',
+          value: finalUrls[lang] || '',
+          placeholder: campaign.final_url || campaign.cta_url || 'https://your-site.com/landing-page (uses campaign default)',
+          style: { fontSize: '13px' },
+        })
+        let finalSaveTimeout = null
+        finalInput.addEventListener('input', () => {
+          clearTimeout(finalSaveTimeout)
+          finalSaveTimeout = setTimeout(async () => {
+            const updated = { ...(campaign.final_urls || {}), [lang]: finalInput.value.trim() }
+            if (!finalInput.value.trim()) delete updated[lang]
+            const r = await api.put(`/campaigns/${campaign.id}`, { final_urls: updated })
+            if (r.success) { campaign.final_urls = updated; toast('Final URL saved') }
+          }, 800)
+        })
+        finalRow.append(finalLabel, finalInput)
+        card.append(finalRow)
 
         if (page) {
           const htmlUrl = fileUrl(campaign.id, lang + '/index.html')
@@ -1466,6 +1592,7 @@ export default {
       const sec3 = h('div', { className: 'mk-card' })
       sec3.append(h('h3', null, 'Call to Action'))
       sec3.append(h('div', { style: { fontSize: '12px', color: 'var(--txt-secondary)', marginBottom: '12px' } }, 'Primary button is the main action. Secondary is optional (shown as a text link below).'))
+      sec3.append(field('Default Google Ads Final URL', 'text', f.final_url || f.cta_url || '', v => f.final_url = v, 'https://your-site.com/landing-page'))
 
       const ctaTypes = [
         { code: 'register', label: 'Register / Sign Up' },
@@ -1523,6 +1650,7 @@ export default {
           title: f.title, topic: f.topic, target_audience: f.target_audience,
           unique_selling_points: f.unique_selling_points || [],
           cta_url: (ctas[0] || {}).url || f.cta_url,
+          final_url: f.final_url || '',
           status: f.status, languages: f.languages, platforms: f.platforms,
           ctas, accent_color: f.accent_color, modal_content: f.modal_content || '',
           brand_logo_url: f.brand_logo_url || '', color_scheme: f.color_scheme || '',

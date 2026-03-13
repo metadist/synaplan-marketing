@@ -486,6 +486,8 @@ class MarketeerController extends AbstractController
             'topic' => $data['topic'],
             'languages' => $data['languages'] ?? [$config['default_language']],
             'cta_url' => $data['cta_url'] ?? (!empty($data['ctas'][0]['url']) ? $data['ctas'][0]['url'] : $config['cta_url']),
+            'final_url' => $data['final_url'] ?? ($data['cta_url'] ?? (!empty($data['ctas'][0]['url']) ? $data['ctas'][0]['url'] : $config['cta_url'])),
+            'final_urls' => $data['final_urls'] ?? [],
             'target_audience' => $data['target_audience'] ?? '',
             'unique_selling_points' => $data['unique_selling_points'] ?? [],
             'platforms' => $data['platforms'] ?? ['google'],
@@ -609,7 +611,7 @@ class MarketeerController extends AbstractController
 
         $data = json_decode($request->getContent(), true) ?? [];
         $allowedFields = [
-            'title', 'topic', 'languages', 'cta_url', 'cta_urls', 'status',
+            'title', 'topic', 'languages', 'cta_url', 'cta_urls', 'final_url', 'final_urls', 'status',
             'target_audience', 'unique_selling_points', 'platforms',
             'ctas', 'tracking', 'sort_order', 'accent_color', 'modal_content',
             'brand_logo_url', 'color_scheme', 'image_style', 'image_style_notes',
@@ -1684,6 +1686,11 @@ class MarketeerController extends AbstractController
             ], Response::HTTP_CREATED);
         } catch (RateLimitExceededException $e) {
             return $this->rateLimitExceededResponse($user, $e);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], Response::HTTP_BAD_REQUEST);
         } catch (\Throwable $e) {
             $this->logger->error('Marketeer ads campaign generation failed', [
                 'user_id' => $userId,
@@ -1724,7 +1731,14 @@ class MarketeerController extends AbstractController
             );
         }
 
-        $id = $this->adsPlannerService->create($userId, $campaignId, $data);
+        try {
+            $id = $this->adsPlannerService->create($userId, $campaignId, $data);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], Response::HTTP_BAD_REQUEST);
+        }
 
         return $this->json([
             'success' => true,
@@ -1781,7 +1795,15 @@ class MarketeerController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true) ?? [];
-        $updated = $this->adsPlannerService->update($userId, $campaignId, $adsCampaignId, $data);
+
+        try {
+            $updated = $this->adsPlannerService->update($userId, $campaignId, $adsCampaignId, $data);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], Response::HTTP_BAD_REQUEST);
+        }
 
         if ($updated === null) {
             return $this->json(['success' => false, 'error' => 'Ads campaign not found'], Response::HTTP_NOT_FOUND);
@@ -2142,6 +2164,29 @@ class MarketeerController extends AbstractController
         foreach ($adsCampaigns as $adsCamp) {
             $adsId = $adsCamp['id'] ?? 'unknown';
             $adsLang = $adsCamp['language'] ?? 'all';
+            $resolvedFinalUrl = $this->resolveFinalUrlForLanguage($campaign, (string) $adsLang);
+            if ($resolvedFinalUrl === '') {
+                return $this->json([
+                    'success' => false,
+                    'error' => sprintf(
+                        'Missing Google Ads final URL for language "%s". Set a campaign default or a page override before downloading.',
+                        $adsLang,
+                    ),
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            if (!$this->isValidHttpUrl($resolvedFinalUrl)) {
+                return $this->json([
+                    'success' => false,
+                    'error' => sprintf(
+                        'Invalid Google Ads final URL for language "%s": %s',
+                        $adsLang,
+                        $resolvedFinalUrl,
+                    ),
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $adsCamp = $this->applyFinalUrlToAdsCampaign($adsCamp, $resolvedFinalUrl);
             $adsName = preg_replace('/[^a-z0-9_-]/i', '_', $adsCamp['campaign_name'] ?? $adsId);
 
             $zip->addFromString(
@@ -2184,7 +2229,20 @@ class MarketeerController extends AbstractController
                 );
             }
 
-            $this->addGoogleAdsEditorCsv($zip, $slug, $adsCamp);
+            try {
+                $this->addGoogleAdsEditorCsv($zip, $slug, $adsCamp);
+            } catch (\InvalidArgumentException $e) {
+                $zip->close();
+
+                return $this->json([
+                    'success' => false,
+                    'error' => sprintf(
+                        'Google Ads export rejected for campaign "%s": %s',
+                        $adsCamp['campaign_name'] ?? $adsId,
+                        $e->getMessage(),
+                    ),
+                ], Response::HTTP_BAD_REQUEST);
+            }
         }
 
         $zip->close();
@@ -2316,6 +2374,65 @@ class MarketeerController extends AbstractController
         }
 
         return $campaign;
+    }
+
+    /**
+     * @param array<string, mixed> $campaign
+     */
+    private function resolveFinalUrlForLanguage(array $campaign, string $language): string
+    {
+        $effectiveFinalUrl = trim((string) ($campaign['final_url'] ?? $campaign['cta_url'] ?? ''));
+        $langFinalUrl = $campaign['final_urls'][$language] ?? null;
+        if (is_string($langFinalUrl) && trim($langFinalUrl) !== '') {
+            $effectiveFinalUrl = trim($langFinalUrl);
+        }
+
+        return $effectiveFinalUrl;
+    }
+
+    private function isValidHttpUrl(string $url): bool
+    {
+        if (filter_var($url, FILTER_VALIDATE_URL) === false) {
+            return false;
+        }
+
+        $scheme = parse_url($url, PHP_URL_SCHEME);
+
+        return is_string($scheme) && in_array(strtolower($scheme), ['http', 'https'], true);
+    }
+
+    /**
+     * @param array<string, mixed> $adsCampaign
+     * @return array<string, mixed>
+     */
+    private function applyFinalUrlToAdsCampaign(array $adsCampaign, string $finalUrl): array
+    {
+        foreach ($adsCampaign['ad_groups'] ?? [] as $groupIndex => $group) {
+            if (!is_array($group)) {
+                continue;
+            }
+
+            foreach ($group['ads'] ?? [] as $adIndex => $ad) {
+                if (!is_array($ad)) {
+                    continue;
+                }
+
+                $ad['final_url'] = $finalUrl;
+                $adsCampaign['ad_groups'][$groupIndex]['ads'][$adIndex] = $ad;
+            }
+        }
+
+        $sitelinks = $adsCampaign['extensions_suggestions']['sitelinks'] ?? [];
+        foreach ($sitelinks as $index => $sitelink) {
+            if (!is_array($sitelink)) {
+                continue;
+            }
+
+            $sitelink['url'] = $finalUrl;
+            $adsCampaign['extensions_suggestions']['sitelinks'][$index] = $sitelink;
+        }
+
+        return $adsCampaign;
     }
 
     /**

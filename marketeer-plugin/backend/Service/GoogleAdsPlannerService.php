@@ -20,6 +20,8 @@ final readonly class GoogleAdsPlannerService
 {
     private const PLUGIN_NAME = 'marketeer';
     private const DATA_TYPE = 'ads_campaign';
+    private const DEFAULT_EU_POLITICAL_ADS = false;
+    private const MAX_HEADLINE_LENGTH = 30;
 
     public function __construct(
         private PluginDataService $pluginData,
@@ -34,7 +36,7 @@ final readonly class GoogleAdsPlannerService
         $id = $this->generateId();
         $key = "{$campaignSlug}_{$id}";
 
-        $data = array_merge($campaignData, [
+        $data = array_merge($this->normalizeCampaignData($campaignData), [
             'id' => $id,
             'campaign_slug' => $campaignSlug,
             'status' => $campaignData['status'] ?? 'draft',
@@ -100,6 +102,7 @@ final readonly class GoogleAdsPlannerService
             'daily_budget_suggestion', 'target_locations', 'ad_groups',
             'campaign_negative_keywords', 'extensions_suggestions',
             'best_practices_notes', 'status', 'language',
+            'contains_eu_political_advertising',
         ];
 
         foreach ($allowedFields as $field) {
@@ -107,6 +110,8 @@ final readonly class GoogleAdsPlannerService
                 $existing[$field] = $updates[$field];
             }
         }
+
+        $existing = $this->normalizeCampaignData($existing);
 
         $existing['updated_at'] = (new \DateTimeImmutable())->format('c');
 
@@ -210,5 +215,56 @@ final readonly class GoogleAdsPlannerService
     private function generateId(): string
     {
         return substr(bin2hex(random_bytes(6)), 0, 12);
+    }
+
+    /**
+     * @param array<string, mixed> $campaignData
+     * @return array<string, mixed>
+     */
+    private function normalizeCampaignData(array $campaignData): array
+    {
+        if (!array_key_exists('contains_eu_political_advertising', $campaignData)) {
+            $campaignData['contains_eu_political_advertising'] = self::DEFAULT_EU_POLITICAL_ADS;
+        }
+
+        $campaignData['contains_eu_political_advertising'] = (bool) $campaignData['contains_eu_political_advertising'];
+        $this->validateCampaignData($campaignData);
+
+        return $campaignData;
+    }
+
+    /**
+     * @param array<string, mixed> $campaignData
+     */
+    private function validateCampaignData(array $campaignData): void
+    {
+        foreach ($campaignData['ad_groups'] ?? [] as $groupIndex => $group) {
+            if (!is_array($group)) {
+                continue;
+            }
+
+            foreach ($group['ads'] ?? [] as $adIndex => $ad) {
+                if (!is_array($ad)) {
+                    continue;
+                }
+
+                foreach ($ad['headlines'] ?? [] as $headlineIndex => $headline) {
+                    $headlineText = (string) $headline;
+                    if (mb_strlen($headlineText) <= self::MAX_HEADLINE_LENGTH) {
+                        continue;
+                    }
+
+                    throw new \InvalidArgumentException(sprintf(
+                        'Headline %d in ad %d of ad group %d exceeds %d characters (%d): "%s"',
+                        $headlineIndex + 1,
+                        $adIndex + 1,
+                        $groupIndex + 1,
+                        self::MAX_HEADLINE_LENGTH,
+                        mb_strlen($headlineText),
+                        $headlineText,
+                    ));
+                }
+            }
+        }
     }
 }

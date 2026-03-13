@@ -17,6 +17,7 @@ namespace Plugin\Marketeer\Service;
  */
 final class GoogleAdsEditorCsvBuilder
 {
+    private const MAX_HEADLINE_LENGTH = 30;
     private const COL_CAMPAIGN = 0;
     private const COL_CAMPAIGN_TYPE = 1;
     private const COL_BUDGET = 2;
@@ -42,7 +43,8 @@ final class GoogleAdsEditorCsvBuilder
     private const COL_CALLOUT_TEXT = 39;
     private const COL_HEADER = 40;
     private const COL_SNIPPET_VALUES = 41;
-    private const COL_STATUS = 42;
+    private const COL_EU_POLITICAL_ADS = 42;
+    private const COL_STATUS = 43;
 
     private const HEADERS = [
         'Campaign',
@@ -87,6 +89,7 @@ final class GoogleAdsEditorCsvBuilder
         'Callout text',
         'Header',
         'Snippet Values',
+        'Contains EU political advertising',
         'Status',
     ];
 
@@ -114,10 +117,11 @@ final class GoogleAdsEditorCsvBuilder
         $language = (string) ($adsCampaign['language'] ?? 'en');
         $rawType = strtolower((string) ($adsCampaign['campaign_type'] ?? 'search'));
         $campaignType = self::CAMPAIGN_TYPE_MAP[$rawType] ?? 'Search';
+        $containsEuPoliticalAds = (bool) ($adsCampaign['contains_eu_political_advertising'] ?? false);
 
         $rows = [self::HEADERS];
 
-        $rows[] = self::campaignRow($campName, $campaignType, $budget, $bidding, $language);
+        $rows[] = self::campaignRow($campName, $campaignType, $budget, $bidding, $language, $containsEuPoliticalAds);
 
         foreach ($adsCampaign['ad_groups'] ?? [] as $group) {
             $groupName = (string) ($group['name'] ?? $group['ad_group_name'] ?? 'Default');
@@ -192,7 +196,14 @@ final class GoogleAdsEditorCsvBuilder
     /**
      * @return string[]
      */
-    private static function campaignRow(string $name, string $type, string $budget, string $bidding, string $lang): array
+    private static function campaignRow(
+        string $name,
+        string $type,
+        string $budget,
+        string $bidding,
+        string $lang,
+        bool $containsEuPoliticalAds,
+    ): array
     {
         $row = self::emptyRow();
         $row[self::COL_CAMPAIGN] = $name;
@@ -203,6 +214,7 @@ final class GoogleAdsEditorCsvBuilder
         $row[self::COL_LANGUAGES] = $lang;
         $row[self::COL_BID_STRATEGY_TYPE] = $bidding;
         $row[self::COL_CAMPAIGN_STATUS] = 'Paused';
+        $row[self::COL_EU_POLITICAL_ADS] = self::formatEuPoliticalAdsDeclaration($containsEuPoliticalAds);
 
         return $row;
     }
@@ -281,7 +293,18 @@ final class GoogleAdsEditorCsvBuilder
 
         $headlineCount = min(15, count($headlines));
         for ($i = 0; $i < $headlineCount; $i++) {
-            $row[self::COL_HEADLINE_START + $i] = (string) $headlines[$i];
+            $headline = (string) $headlines[$i];
+            if (mb_strlen($headline) > self::MAX_HEADLINE_LENGTH) {
+                throw new \InvalidArgumentException(sprintf(
+                    'Headline %d exceeds %d characters (%d): "%s"',
+                    $i + 1,
+                    self::MAX_HEADLINE_LENGTH,
+                    mb_strlen($headline),
+                    $headline,
+                ));
+            }
+
+            $row[self::COL_HEADLINE_START + $i] = $headline;
         }
 
         $descCount = min(4, count($descriptions));
@@ -308,6 +331,13 @@ final class GoogleAdsEditorCsvBuilder
             'exact' => '[' . $keyword . ']',
             default => $keyword,
         };
+    }
+
+    private static function formatEuPoliticalAdsDeclaration(bool $containsEuPoliticalAds): string
+    {
+        return $containsEuPoliticalAds
+            ? 'CONTAINS_EU_POLITICAL_ADVERTISING'
+            : 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING';
     }
 
     /**
