@@ -1,3 +1,6 @@
+const MK_VERSION = 'v1.0.2'
+const MK_BUILD = new Date().toISOString().replace(/[-T:]/g, (m) => m === 'T' ? '-' : m === '-' ? '' : '').slice(0, 15)
+
 const LANGS = [
   { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
@@ -449,6 +452,7 @@ export default {
       else if (p === 'new') renderNewCampaign()
       else if (p === 'campaign') renderCampaignDetail()
       else if (p === 'config') renderConfig()
+      root.append(h('div', { style: { textAlign: 'right', padding: '12px 4px 0', fontSize: '11px', color: '#888', opacity: 0.5 } }, `Marketeer ${MK_VERSION} · ${MK_BUILD}`))
     }
 
     // ── Dashboard ────────────────────────────────────────────────────────
