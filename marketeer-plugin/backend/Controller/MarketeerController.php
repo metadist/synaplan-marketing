@@ -2215,7 +2215,7 @@ class MarketeerController extends AbstractController
 
                 $zip->addFromString(
                     "{$slug}/google-ads/{$adsName}_{$adsLang}_keywords.csv",
-                    implode("\n", $csvLines) . "\n",
+                    $this->withUtf8Bom(implode("\n", $csvLines) . "\n"),
                 );
             }
 
@@ -2227,7 +2227,7 @@ class MarketeerController extends AbstractController
                 }
                 $zip->addFromString(
                     "{$slug}/google-ads/{$adsName}_{$adsLang}_negative_keywords.csv",
-                    implode("\n", $negLines) . "\n",
+                    $this->withUtf8Bom(implode("\n", $negLines) . "\n"),
                 );
             }
 
@@ -2269,6 +2269,11 @@ class MarketeerController extends AbstractController
             fn (string $f) => '"' . str_replace('"', '""', $f) . '"',
             $fields,
         ));
+    }
+
+    private function withUtf8Bom(string $content): string
+    {
+        return "\xEF\xBB\xBF" . $content;
     }
 
     /**
