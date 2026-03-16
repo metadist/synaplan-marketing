@@ -1,4 +1,4 @@
-const MK_VERSION = 'v1.0.4'
+const MK_VERSION = 'v1.0.5'
 const MK_BUILD = new Date().toISOString().replace(/[-T:]/g, (m) => m === 'T' ? '-' : m === '-' ? '' : '').slice(0, 15)
 
 const LANGS = [
