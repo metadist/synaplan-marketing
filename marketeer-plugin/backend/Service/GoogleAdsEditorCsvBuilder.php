@@ -326,18 +326,12 @@ final class GoogleAdsEditorCsvBuilder
      */
     private static function formatKeywordWithMatchType(string $keyword, string $matchType): string
     {
-        return match (strtolower($matchType)) {
-            'phrase' => '"' . $keyword . '"',
-            'exact' => '[' . $keyword . ']',
-            default => $keyword,
-        };
+        return $keyword;
     }
 
     private static function formatEuPoliticalAdsDeclaration(bool $containsEuPoliticalAds): string
     {
-        return $containsEuPoliticalAds
-            ? 'CONTAINS_EU_POLITICAL_ADVERTISING'
-            : 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING';
+        return $containsEuPoliticalAds ? 'Yes' : 'No';
     }
 
     /**
