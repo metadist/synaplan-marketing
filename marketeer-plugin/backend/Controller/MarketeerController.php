@@ -1466,6 +1466,8 @@ class MarketeerController extends AbstractController
         }
 
         try {
+            set_time_limit(300);
+
             $prompt = $this->contentGenerator->buildVideoPrompt($campaign, $config, $description);
 
             $result = $this->generateVideoForUser($user, $prompt, [

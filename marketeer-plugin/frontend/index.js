@@ -232,7 +232,7 @@ function createApi(baseUrl, userId) {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const CSS = `
-  .mk{font-family:system-ui,-apple-system,sans-serif;color:var(--txt-primary,#e0e0e0);max-width:960px;margin:0 auto;color-scheme:dark}
+  .mk{font-family:system-ui,-apple-system,sans-serif;color:var(--txt-primary,#e0e0e0);max-width:960px;margin:0 auto}
   .mk *{box-sizing:border-box}
   .mk h2{font-size:22px;font-weight:600;margin:0 0 4px}
   .mk h3{font-size:17px;font-weight:600;margin:0 0 8px}
@@ -248,7 +248,7 @@ const CSS = `
   .mk-secondary{background:var(--bg-chip,#333);color:var(--txt-primary,#e0e0e0)}
   .mk-danger{background:#c0392b;color:#fff}
   .mk-ghost{background:transparent;color:var(--brand,#00b79d);padding:8px 12px}
-  .mk-input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border-light,#444);background:var(--bg-input,#151520);color:var(--txt-primary,#e0e0e0);font-size:14px;outline:none;color-scheme:dark}
+  .mk-input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border-light,#444);background:var(--bg-input,var(--bg-chip,#151520));color:var(--txt-primary,#e0e0e0);font-size:14px;outline:none}
   .mk-input:focus{border-color:var(--brand,#00b79d)}
   .mk-textarea{min-height:80px;resize:vertical;font-family:inherit}
   .mk-label{display:block;font-size:12px;font-weight:600;color:var(--txt-secondary,#999);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
@@ -265,13 +265,13 @@ const CSS = `
   .mk-chip.on{background:var(--brand,#00b79d);color:#fff;border-color:var(--brand,#00b79d)}
   .mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
   .mk-preset-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
-  .mk-preset{border:1px solid var(--border-light,#444);border-radius:10px;padding:10px 12px;background:var(--bg-input,#151520);cursor:pointer;transition:border-color .15s,transform .15s}
+  .mk-preset{border:1px solid var(--border-light,#444);border-radius:10px;padding:10px 12px;background:var(--bg-input,var(--bg-chip,#151520));cursor:pointer;transition:border-color .15s,transform .15s}
   .mk-preset:hover{border-color:var(--brand,#00b79d);transform:translateY(-1px)}
   .mk-preset.on{border-color:var(--brand,#00b79d);box-shadow:0 0 0 1px rgba(0,183,157,.35) inset}
   .mk-preset-title{font-size:13px;font-weight:700;margin-bottom:4px}
   .mk-preset-sub{font-size:11px;color:var(--txt-secondary,#999);line-height:1.4}
   .mk-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;background:var(--bg-chip,#333);margin:0 4px 4px 0}
-  .mk-pre{background:var(--bg-input,#151520);border:1px solid var(--border-light,#444);border-radius:8px;padding:14px;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow:auto;line-height:1.6;font-family:ui-monospace,monospace}
+  .mk-pre{background:var(--bg-input,var(--bg-chip,#151520));border:1px solid var(--border-light,#444);border-radius:8px;padding:14px;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow:auto;line-height:1.6;font-family:ui-monospace,monospace}
   .mk-preview{border:1px solid var(--border-light,#444);border-radius:8px;overflow:hidden;background:#fff}
   .mk-preview iframe{width:100%;height:500px;border:none}
   .mk-sep{border:none;border-top:1px solid var(--border-light,#333);margin:20px 0}
@@ -1091,7 +1091,7 @@ export default {
         }
 
         entries.forEach(ac => {
-          const planSection = h('div', { style: { padding: '12px', background: 'var(--bg-input,#151520)', borderRadius: '8px', marginBottom: '8px' } })
+          const planSection = h('div', { style: { padding: '12px', background: 'var(--bg-input,var(--bg-chip,#151520))', borderRadius: '8px', marginBottom: '8px' } })
           planSection.append(h('div', { className: 'mk-row', style: { justifyContent: 'space-between', marginBottom: '8px' } },
             h('div', { style: { fontWeight: '600', fontSize: '14px' } }, ac.campaign_name || 'Untitled'),
             asyncBtn('🗑', 'mk-danger', async () => {
@@ -1195,7 +1195,7 @@ export default {
           const existing = langImages.find(f => f.path.includes(`/${lang}/images/${img.id}.`))
           const collKey = Object.keys(collaterals).find(k => collaterals[k]?.type === img.id && collaterals[k]?.language === lang)
           const lastPrompt = collKey ? collaterals[collKey]?.prompt : null
-          const tile = h('div', { style: { border: '1px solid var(--border-light,#333)', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-input,#151520)' } })
+          const tile = h('div', { style: { border: '1px solid var(--border-light,#333)', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-input,var(--bg-chip,#151520))' } })
 
           if (existing) {
             const rel = `${lang}/images/${img.id}.png`
@@ -1602,7 +1602,7 @@ export default {
       ]
       for (let i = 0; i < 2; i++) {
         const lbl = i === 0 ? 'Primary' : 'Secondary (optional)'
-        sec3.append(h('div', { style: { padding: '12px', background: 'var(--bg-input,#151520)', borderRadius: '8px', marginBottom: '10px' } },
+        sec3.append(h('div', { style: { padding: '12px', background: 'var(--bg-input,var(--bg-chip,#151520))', borderRadius: '8px', marginBottom: '10px' } },
           h('div', { style: { fontSize: '11px', fontWeight: '700', color: 'var(--txt-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '.5px' } }, lbl),
           h('div', { className: 'mk-row', style: { gap: '10px' } },
             h('div', { style: { width: '130px', flexShrink: 0 } },
