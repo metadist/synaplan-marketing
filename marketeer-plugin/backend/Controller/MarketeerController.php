@@ -1420,46 +1420,6 @@ class MarketeerController extends AbstractController
     // Video Generation
     // =========================================================================
 
-    #[Route('/campaigns/{campaignId}/preview-video-prompt', name: 'preview_video_prompt', methods: ['POST'])]
-    #[OA\Post(
-        path: '/api/v1/user/{userId}/plugins/marketeer/campaigns/{campaignId}/preview-video-prompt',
-        summary: 'Preview the resolved video prompt for a campaign (with all placeholders filled)',
-        security: [['ApiKey' => []]],
-        tags: ['Marketeer Plugin']
-    )]
-    #[OA\RequestBody(
-        content: new OA\JsonContent(
-            properties: [
-                new OA\Property(property: 'description', type: 'string', nullable: true),
-            ]
-        )
-    )]
-    #[OA\Response(response: 200, description: 'Resolved prompt')]
-    public function previewVideoPrompt(
-        Request $request,
-        int $userId,
-        string $campaignId,
-        #[CurrentUser] ?User $user,
-    ): JsonResponse {
-        if (!$this->canAccessPlugin($user, $userId)) {
-            return $this->json(['success' => false, 'error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
-        }
-
-        $campaign = $this->pluginData->get($userId, self::PLUGIN_NAME, self::DATA_TYPE_CAMPAIGN, $campaignId);
-        if ($campaign === null) {
-            return $this->json(['success' => false, 'error' => 'Campaign not found'], Response::HTTP_NOT_FOUND);
-        }
-
-        $data = json_decode($request->getContent(), true) ?? [];
-        $config = $this->getPluginConfig($userId);
-        $description = $data['description'] ?? null;
-
-        return $this->json([
-            'success' => true,
-            'prompt' => $this->contentGenerator->buildVideoPrompt($campaign, $config, $description),
-        ]);
-    }
-
     #[Route('/campaigns/{campaignId}/generate-video', name: 'generate_video', methods: ['POST'])]
     #[OA\Post(
         path: '/api/v1/user/{userId}/plugins/marketeer/campaigns/{campaignId}/generate-video',
@@ -2728,6 +2688,7 @@ class MarketeerController extends AbstractController
      */
     private function callChat(User $user, array $messages, float $temperature, int $maxTokens): array
     {
+        set_time_limit(300);
         $this->assertRateLimit($user, 'MESSAGES');
 
         $userId = (int) $user->getId();
@@ -2773,6 +2734,7 @@ class MarketeerController extends AbstractController
      */
     private function generateImageForUser(User $user, string $prompt, array $options = []): array
     {
+        set_time_limit(300);
         $this->assertRateLimit($user, 'IMAGES');
 
         $userId = (int) $user->getId();

@@ -1322,17 +1322,42 @@ export default {
             if (!promptState.loaded) {
               toggleBtn.textContent = 'Loading…'
               toggleBtn.disabled = true
-              const r = await api.post(`/campaigns/${campaign.id}/preview-video-prompt`, {})
-              toggleBtn.disabled = false
-              if (r.success) {
-                promptState.text = r.prompt
+              try {
+                const [cfgRes, defaultsRes] = await Promise.all([
+                  cachedConfig ? { success: true, config: cachedConfig } : api.get('/config'),
+                  api.get('/config/default-media-prompts'),
+                ])
+                const cfg = cfgRes.success ? (cfgRes.config || cfgRes) : {}
+                if (cfgRes.success && cfgRes.config) cachedConfig = cfgRes.config
+                const brandName = cfg.brand_name || 'Synaplan'
+                const title = campaign.title || 'AI Knowledge Management'
+                const topic = campaign.topic || title
+                const accent = campaign.accent_color || cfg.default_accent_color || '#00b79d'
+                const colorScheme = campaign.color_scheme || cfg.default_color_scheme || 'dark backgrounds with vibrant accent'
+                let usps = ''
+                if (campaign.unique_selling_points && campaign.unique_selling_points.length) {
+                  usps = ' Highlight: ' + campaign.unique_selling_points.slice(0, 2).join(', ') + '.'
+                }
+                const customPrompt = cfg.video_prompt || ''
+                const defaultTemplate = (defaultsRes.success && defaultsRes.video_prompt) ? defaultsRes.video_prompt : ''
+                const template = customPrompt.trim() ? customPrompt : (defaultTemplate || `Create a short cinematic marketing video clip for {{brand_name}}. Theme: {{topic}}.{{usps}} Style: Smooth motion graphics with abstract tech visuals, clean transitions, professional corporate feel. Color palette: {{color_scheme}}, using {{accent_color}} as the accent color. IMPORTANT: Do NOT include any text, words, letters, numbers, titles, captions, subtitles, or written content of any kind in the video. No voiceover. Purely visual motion graphics only.`)
+                const resolved = template
+                  .replace(/\{\{brand_name\}\}/g, brandName)
+                  .replace(/\{\{title\}\}/g, title)
+                  .replace(/\{\{topic\}\}/g, topic)
+                  .replace(/\{\{usps\}\}/g, usps)
+                  .replace(/\{\{accent_color\}\}/g, accent)
+                  .replace(/\{\{color_scheme\}\}/g, colorScheme)
+                promptState.text = resolved
                 promptState.loaded = true
-                promptArea.value = r.prompt
-              } else {
-                toast(r.error || 'Failed to load prompt', true)
+                promptArea.value = resolved
+              } catch (e) {
+                toast('Failed to build prompt: ' + (e.message || e), true)
                 toggleBtn.textContent = '✏️ Show & Edit Prompt'
+                toggleBtn.disabled = false
                 return
               }
+              toggleBtn.disabled = false
             }
             promptState.editing = !promptState.editing
             promptArea.style.display = promptState.editing ? '' : 'none'
