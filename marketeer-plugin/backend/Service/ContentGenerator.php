@@ -831,7 +831,8 @@ PROMPT;
             return "Create a short professional marketing video clip for {$brandName}. "
                 . "Campaign: {$title}. "
                 . "Color palette: {$colorScheme}, accent color {$accent}. "
-                . "Description: {$userDescription}";
+                . "Description: {$userDescription} "
+                . "No text overlays, no written words, no titles, no captions, no voiceover — purely visual.";
         }
 
         $topic = $campaign['topic'] ?? $title;
@@ -861,7 +862,7 @@ PROMPT;
     }
 
     private const DEFAULT_VIDEO_PROMPT = <<<'PROMPT'
-Create a short cinematic marketing video clip for {{brand_name}}. Theme: {{topic}}.{{usps}} Style: Smooth motion graphics with abstract tech visuals, clean transitions, professional corporate feel. Color palette: {{color_scheme}}, using {{accent_color}} as the accent color. No text overlays or voiceover — purely visual.
+Create a short cinematic marketing video clip for {{brand_name}}. Theme: {{topic}}.{{usps}} Style: Smooth motion graphics with abstract tech visuals, clean transitions, professional corporate feel. Color palette: {{color_scheme}}, using {{accent_color}} as the accent color. IMPORTANT: Do NOT include any text, words, letters, numbers, titles, captions, subtitles, or written content of any kind in the video. No voiceover. Purely visual motion graphics only.
 PROMPT;
 
     // --- Compliance / GDPR ---

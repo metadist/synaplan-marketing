@@ -1420,6 +1420,46 @@ class MarketeerController extends AbstractController
     // Video Generation
     // =========================================================================
 
+    #[Route('/campaigns/{campaignId}/preview-video-prompt', name: 'preview_video_prompt', methods: ['POST'])]
+    #[OA\Post(
+        path: '/api/v1/user/{userId}/plugins/marketeer/campaigns/{campaignId}/preview-video-prompt',
+        summary: 'Preview the resolved video prompt for a campaign (with all placeholders filled)',
+        security: [['ApiKey' => []]],
+        tags: ['Marketeer Plugin']
+    )]
+    #[OA\RequestBody(
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'description', type: 'string', nullable: true),
+            ]
+        )
+    )]
+    #[OA\Response(response: 200, description: 'Resolved prompt')]
+    public function previewVideoPrompt(
+        Request $request,
+        int $userId,
+        string $campaignId,
+        #[CurrentUser] ?User $user,
+    ): JsonResponse {
+        if (!$this->canAccessPlugin($user, $userId)) {
+            return $this->json(['success' => false, 'error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $campaign = $this->pluginData->get($userId, self::PLUGIN_NAME, self::DATA_TYPE_CAMPAIGN, $campaignId);
+        if ($campaign === null) {
+            return $this->json(['success' => false, 'error' => 'Campaign not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+        $config = $this->getPluginConfig($userId);
+        $description = $data['description'] ?? null;
+
+        return $this->json([
+            'success' => true,
+            'prompt' => $this->contentGenerator->buildVideoPrompt($campaign, $config, $description),
+        ]);
+    }
+
     #[Route('/campaigns/{campaignId}/generate-video', name: 'generate_video', methods: ['POST'])]
     #[OA\Post(
         path: '/api/v1/user/{userId}/plugins/marketeer/campaigns/{campaignId}/generate-video',
@@ -1430,6 +1470,7 @@ class MarketeerController extends AbstractController
     #[OA\RequestBody(
         content: new OA\JsonContent(
             properties: [
+                new OA\Property(property: 'prompt', type: 'string', description: 'Full prompt override (bypasses template)'),
                 new OA\Property(property: 'description', type: 'string', example: 'A sleek motion-graphics intro showing the brand logo with teal accents'),
                 new OA\Property(property: 'language', type: 'string', example: 'en'),
                 new OA\Property(property: 'duration', type: 'integer', enum: [4, 6, 8], example: 6),
@@ -1456,6 +1497,7 @@ class MarketeerController extends AbstractController
         $config = $this->getPluginConfig($userId);
         $language = $data['language'] ?? $config['default_language'];
         $duration = $data['duration'] ?? 6;
+        $promptOverride = $data['prompt'] ?? null;
         $description = $data['description'] ?? null;
 
         if (!in_array($duration, [4, 6, 8], true)) {
@@ -1468,7 +1510,9 @@ class MarketeerController extends AbstractController
         try {
             set_time_limit(300);
 
-            $prompt = $this->contentGenerator->buildVideoPrompt($campaign, $config, $description);
+            $prompt = ($promptOverride !== null && trim($promptOverride) !== '')
+                ? $promptOverride
+                : $this->contentGenerator->buildVideoPrompt($campaign, $config, $description);
 
             $result = $this->generateVideoForUser($user, $prompt, [
                 'duration' => $duration,

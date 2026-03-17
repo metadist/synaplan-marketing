@@ -1305,21 +1305,58 @@ export default {
             }, { style: { padding: '5px 12px', fontSize: '12px' } }))
           }
           vCard.append(actionRow)
-          const regenDesc = h('textarea', { className: 'mk-input', rows: 2, placeholder: 'New description (leave empty for auto)...', style: { width: '100%', resize: 'vertical', marginBottom: '8px' } })
-          const regenDur = h('select', { className: 'mk-input', style: { width: 'auto', marginBottom: '8px', marginRight: '8px' } })
-          ;[4, 6, 8].forEach(d => regenDur.append(h('option', { value: d, selected: d === 6 }, `${d}s`)))
-          vCard.append(regenDesc, h('div', { className: 'mk-row', style: { gap: '8px' } }, regenDur, asyncBtn('🔄 Regenerate', 'mk-secondary', async () => {
-            const d = await api.post(`/campaigns/${campaign.id}/generate-video`, { description: regenDesc.value || undefined, language: lang, duration: parseInt(regenDur.value) })
-            if (d.success) { toast(`${langLabel(lang)} video regenerated!`); render() } else toast(d.error || 'Failed', true)
-          })))
-        } else {
-          const descInput = h('textarea', { className: 'mk-input', rows: 2, placeholder: 'Describe the video (leave empty for auto-generated prompt)...', style: { width: '100%', resize: 'vertical', marginBottom: '8px' } })
-          const durSelect = h('select', { className: 'mk-input', style: { width: 'auto', marginBottom: '8px', marginRight: '8px' } })
-          ;[4, 6, 8].forEach(d => durSelect.append(h('option', { value: d, selected: d === 6 }, `${d}s`)))
-          vCard.append(descInput, h('div', { className: 'mk-row', style: { gap: '8px' } }, durSelect, asyncBtn('🎬 Generate Video', 'mk-primary', async () => {
-            const d = await api.post(`/campaigns/${campaign.id}/generate-video`, { description: descInput.value || undefined, language: lang, duration: parseInt(durSelect.value) })
-            if (d.success) { toast(`${langLabel(lang)} video generated!`); render() } else toast(d.error || 'Failed', true)
-          })))
+        }
+
+        const promptState = { loaded: false, editing: false, text: '' }
+        const promptArea = h('textarea', {
+          className: 'mk-input mk-textarea',
+          rows: 5,
+          style: { width: '100%', resize: 'vertical', fontFamily: 'monospace', fontSize: '12px', lineHeight: '1.5', display: 'none', marginBottom: '8px' },
+          onInput: (e) => { promptState.text = e.target.value },
+        })
+
+        const toggleBtn = h('button', {
+          className: 'mk-btn mk-secondary',
+          style: { padding: '5px 12px', fontSize: '12px', marginBottom: '8px' },
+          onClick: async () => {
+            if (!promptState.loaded) {
+              toggleBtn.textContent = 'Loading…'
+              toggleBtn.disabled = true
+              const r = await api.post(`/campaigns/${campaign.id}/preview-video-prompt`, {})
+              toggleBtn.disabled = false
+              if (r.success) {
+                promptState.text = r.prompt
+                promptState.loaded = true
+                promptArea.value = r.prompt
+              } else {
+                toast(r.error || 'Failed to load prompt', true)
+                toggleBtn.textContent = '✏️ Show & Edit Prompt'
+                return
+              }
+            }
+            promptState.editing = !promptState.editing
+            promptArea.style.display = promptState.editing ? '' : 'none'
+            toggleBtn.textContent = promptState.editing ? '▲ Hide Prompt' : '✏️ Show & Edit Prompt'
+          },
+        }, '✏️ Show & Edit Prompt')
+
+        const durSelect = h('select', { className: 'mk-input', style: { width: 'auto', marginBottom: '8px', marginRight: '8px' } })
+        ;[4, 6, 8].forEach(d => durSelect.append(h('option', { value: d, selected: d === 6 }, `${d}s`)))
+
+        const btnLabel = existingVideo ? '🔄 Regenerate' : '🎬 Generate Video'
+        const btnClass = existingVideo ? 'mk-secondary' : 'mk-primary'
+        const genBtn = asyncBtn(btnLabel, btnClass, async () => {
+          const body = { language: lang, duration: parseInt(durSelect.value) }
+          if (promptState.editing && promptState.text.trim()) {
+            body.prompt = promptState.text
+          }
+          const d = await api.post(`/campaigns/${campaign.id}/generate-video`, body)
+          if (d.success) { toast(`${langLabel(lang)} video ${existingVideo ? 're' : ''}generated!`); render() } else toast(d.error || 'Failed', true)
+        })
+
+        vCard.append(toggleBtn, promptArea)
+        vCard.append(h('div', { className: 'mk-row', style: { gap: '8px' } }, durSelect, genBtn))
+        if (!existingVideo) {
           vCard.append(h('div', { style: { fontSize: '11px', color: 'var(--txt-secondary)', marginTop: '6px' } }, 'Takes 1-2 min. Uses your configured video model.'))
         }
         ct.append(vCard)
